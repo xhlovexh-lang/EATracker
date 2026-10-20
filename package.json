@@ -1,0 +1,48 @@
+{
+  "name": "steam-early-access-abandoned",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Is [Game] Abandoned? Track every Steam Early Access game's update cadence, patch history, and abandonment status.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "crawler:discover": "tsx crawler/index.ts discover",
+    "crawler:refresh-hot": "tsx crawler/index.ts refresh-hot",
+    "crawler:refresh-store": "tsx crawler/index.ts refresh-store",
+    "crawler:refresh-all-news": "tsx crawler/index.ts refresh-all-news",
+    "crawler:rescore": "tsx crawler/index.ts rescore",
+    "crawler:app": "tsx crawler/index.ts app"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.4",
+    "lucide-react": "^1.59.0",
+    "next": "^16.4.2",
+    "p-queue": "^10.0.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwind-merge": "^3.7.0",
+    "undici": "^8.12.3",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "drizzle-kit": "^0.31.11",
+    "postcss": "^8.5.31",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "packageManager": "pnpm@10.33.0"
+}
