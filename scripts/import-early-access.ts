@@ -1,4 +1,5 @@
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { classifyNewsItem, isValidUnixTimestamp } from "../crawler/schemas";
 import { evaluateGameStatus } from "../src/lib/status-engine";
 import { slugifyGameName } from "../src/lib/slug";
@@ -6,7 +7,7 @@ import { slugifyGameName } from "../src/lib/slug";
 const UA = "EATrackerBot/1.0 (+https://eatrackers.vercel.app/methodology)";
 const TARGET = 240;
 const NOW = new Date("2026-10-21T08:00:00Z");
-const OUT = new URL("../data/imported-games.json", import.meta.url);
+const OUT = fileURLToPath(new URL("../data/imported-games.json", import.meta.url));
 
 const SEED_APPIDS = new Set([
   1363080, 2694490, 1149460, 892970, 108600, 251570, 1203620, 548430, 954850,
@@ -28,22 +29,6 @@ const GENRE_NAMES: Record<string, string> = {
   "70": "Early Access",
 };
 
-const TAG_SLUGS: Record<string, string> = {
-  "19": "action",
-  "21": "adventure",
-  "122": "rpg",
-  "492": "indie",
-  "493": "early-access",
-  "599": "simulation",
-  "1662": "survival",
-  "1695": "open-world",
-  "1702": "crafting",
-  "1755": "space",
-  "3843": "co-op",
-  "3942": "sci-fi",
-  "7332": "base-building",
-};
-
 const REVIEW_LABELS: Record<string, string> = {
   "1": "Overwhelmingly Negative",
   "2": "Very Negative",
@@ -58,6 +43,9 @@ const REVIEW_LABELS: Record<string, string> = {
 
 const PATCH_TITLE = /\b(patch|hotfix|update|v?\d+\.\d+(\.\d+)?|changelog|build)\b/i;
 
+/** Prefer refreshing the existing catalog; pass --discover to search for new titles. */
+const REFRESH_EXISTING = !process.argv.includes("--discover");
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -70,6 +58,11 @@ async function getJson(url: string): Promise<unknown> {
   if (res.status === 429) {
     console.warn("429, backing off 60s", url);
     await sleep(60_000);
+    return getJson(url);
+  }
+  if (res.status === 403) {
+    console.warn("403, backing off 5m", url);
+    await sleep(300_000);
     return getJson(url);
   }
   if (!res.ok) throw new Error(`${res.status} ${url}`);
@@ -86,6 +79,32 @@ function decode(value: string) {
     .trim();
 }
 
+function slugifyTagName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Load Steam's public popular-tags list (id → display name) and map to URL slugs. */
+async function loadSteamTagSlugs(): Promise<Map<string, string>> {
+  const payload = (await getJson(
+    "https://store.steampowered.com/tagdata/populartags/english"
+  )) as Array<{ tagid: number; name: string }>;
+  const map = new Map<string, string>();
+  for (const tag of payload) {
+    if (!tag?.tagid || !tag?.name) continue;
+    const slug = slugifyTagName(String(tag.name));
+    if (slug) map.set(String(tag.tagid), slug);
+  }
+  console.log(`loaded ${map.size} Steam store tag names`);
+  return map;
+}
+
 interface SearchHit {
   appid: number;
   name: string;
@@ -95,6 +114,20 @@ interface SearchHit {
   reviewDesc: string;
   totalReviews: number;
   positivePct: number;
+}
+
+interface ExistingGame {
+  appid: number;
+  name: string;
+  slug: string;
+  isFree?: boolean;
+  priceCents?: number | null;
+  reviewScoreDesc?: string;
+  totalReviews?: number;
+  totalPositive?: number;
+  totalNegative?: number;
+  leftEaAt?: string | null;
+  eaStartDate?: string | null;
 }
 
 function parseSearch(html: string): SearchHit[] {
@@ -160,7 +193,49 @@ function monthBins(dates: Array<{ date: string; patch: boolean }>) {
   return bins;
 }
 
-async function main() {
+function loadExistingGames(): ExistingGame[] {
+  if (!existsSync(OUT)) return [];
+  try {
+    const raw = JSON.parse(readFileSync(OUT, "utf8")) as ExistingGame[];
+    return Array.isArray(raw) ? raw.filter((g) => g?.appid && g?.name) : [];
+  } catch {
+    return [];
+  }
+}
+
+function existingToHit(game: ExistingGame): SearchHit {
+  const totalReviews = game.totalReviews ?? 0;
+  const totalPositive = game.totalPositive ?? 0;
+  const positivePct =
+    totalReviews > 0 ? Math.round((totalPositive / totalReviews) * 100) : 0;
+  return {
+    appid: game.appid,
+    name: game.name,
+    released: "",
+    priceCents: game.priceCents ?? null,
+    isFree: Boolean(game.isFree),
+    reviewDesc: game.reviewScoreDesc || "No user reviews",
+    totalReviews,
+    positivePct,
+  };
+}
+
+async function fetchShortDescription(appid: number): Promise<string | null> {
+  try {
+    const payload = (await getJson(
+      `https://store.steampowered.com/api/appdetails?appids=${appid}&cc=us&l=english`
+    )) as Record<string, { success?: boolean; data?: { short_description?: string } }>;
+    const entry = payload[String(appid)];
+    if (!entry?.success || !entry.data) return null;
+    const text = entry.data.short_description;
+    return typeof text === "string" && text.trim() ? text.trim() : null;
+  } catch (error) {
+    console.warn("appdetails skip", appid, error);
+    return null;
+  }
+}
+
+async function discoverHits(): Promise<SearchHit[]> {
   const hits: SearchHit[] = [];
   const seen = new Set<number>();
   for (let page = 0; page < 18 && hits.length < 1400; page++) {
@@ -175,6 +250,24 @@ async function main() {
     }
     console.log(`search page ${page + 1}: candidates ${hits.length}, steam total ${payload.total_count}`);
     await sleep(2100);
+  }
+  return hits;
+}
+
+async function main() {
+  const tagSlugs = await loadSteamTagSlugs();
+  await sleep(2100);
+
+  const existing = loadExistingGames();
+  const existingById = new Map(existing.map((g) => [g.appid, g]));
+
+  let hits: SearchHit[];
+  if (REFRESH_EXISTING && existing.length > 0) {
+    console.log(`refresh mode: re-importing ${existing.length} existing games (no new discovery)`);
+    hits = existing.map(existingToHit);
+  } else {
+    console.log("discover mode: searching Steam Early Access catalog");
+    hits = await discoverHits();
   }
 
   const imported = [];
@@ -198,7 +291,8 @@ async function main() {
   ]);
 
   for (const hit of hits) {
-    if (imported.length >= TARGET) break;
+    if (!REFRESH_EXISTING && imported.length >= TARGET) break;
+
     let info: unknown;
     try {
       info = await getJson(`https://api.steamcmd.net/v1/info/${hit.appid}`);
@@ -213,7 +307,9 @@ async function main() {
     const common = asRecord(asRecord(app).common);
     const genres = asRecord(common.genres);
     const genreIds = Object.values(genres).map(String);
-    if (String(common.type).toLowerCase() !== "game" || !genreIds.includes("70")) continue;
+    // Refresh keeps previously tracked titles even if they left Early Access.
+    if (String(common.type).toLowerCase() !== "game") continue;
+    if (!REFRESH_EXISTING && !genreIds.includes("70")) continue;
 
     const release = isValidUnixTimestamp(common.steam_release_date as string | number);
     if (!release || release.getTime() > NOW.getTime()) continue;
@@ -227,6 +323,10 @@ async function main() {
       console.warn("news skip", hit.appid, error);
     }
     await sleep(250);
+
+    // Store host: ~1 req / 2s (shared with search when discovering).
+    const shortDescriptionFromSteam = await fetchShortDescription(hit.appid);
+    await sleep(2100);
 
     const items = (asRecord(asRecord(newsJson).appnews).newsitems as unknown[]) ?? [];
     const announcements = [];
@@ -282,17 +382,34 @@ async function main() {
       .filter((entry) => entry.type === "publisher")
       .map((entry) => String(entry.name));
     const genreNames = genreIds.map((id) => GENRE_NAMES[id]).filter(Boolean);
-    const tags = [...new Set(valuesOf(common.store_tags).map((id) => TAG_SLUGS[id]).filter(Boolean))];
+
+    // Map every steamcmd store_tags id through Steam's public tag-name list.
+    const tags = [
+      ...new Set(
+        valuesOf(common.store_tags)
+          .map((id) => tagSlugs.get(id))
+          .filter((slug): slug is string => Boolean(slug))
+      ),
+    ];
     for (const genre of genreNames) {
-      const slug = genre.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-      if (!tags.includes(slug) && slug !== "early-access" && slug !== "free-to-play") tags.push(slug);
+      const slug = slugifyTagName(genre);
+      if (!tags.includes(slug) && slug !== "early-access" && slug !== "free-to-play") {
+        tags.push(slug);
+      }
     }
 
     const positive = Math.round((hit.totalReviews * hit.positivePct) / 100);
+    const stillInEa = genreIds.includes("70");
+    const prior = existingById.get(hit.appid);
+    const eaStartDate = prior?.eaStartDate || release.toISOString().slice(0, 10);
+    const leftEaAt = stillInEa
+      ? null
+      : prior?.leftEaAt || NOW.toISOString().slice(0, 10);
     const evaluated = evaluateGameStatus({
-      isEarlyAccessNow: true,
+      isEarlyAccessNow: stillInEa,
       wasTrackedInEarlyAccess: true,
-      eaStartDate: release.toISOString().slice(0, 10),
+      eaStartDate,
+      leftEarlyAccessAt: leftEaAt,
       lastPatchAt: lastPatch ? new Date(lastPatch) : null,
       lastPatchHeuristicAt: lastHeuristic ? new Date(lastHeuristic) : null,
       lastDevPostAt: lastPost ? new Date(lastPost) : null,
@@ -306,11 +423,15 @@ async function main() {
       now: NOW,
     });
 
-    let slug = slugifyGameName(hit.name);
-    if (usedSlugs.has(slug)) slug = `${slug}-${hit.appid}`;
+    let slug = prior?.slug || slugifyGameName(hit.name);
+    if (!prior && usedSlugs.has(slug)) slug = `${slug}-${hit.appid}`;
     usedSlugs.add(slug);
 
     const reviewScore = REVIEW_LABELS[String(common.review_score ?? "")] || hit.reviewDesc;
+    const fallbackDescription = `${hit.name} is a Steam Early Access ${
+      genreNames.filter((genre) => genre !== "Early Access").slice(0, 2).join(" / ") || "game"
+    } by ${(developers[0] ?? "an independent studio")}.`;
+
     imported.push({
       appid: hit.appid,
       name: hit.name,
@@ -323,10 +444,10 @@ async function main() {
       priceCents: hit.priceCents,
       currency: "USD",
       headerImage: `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${hit.appid}/header.jpg`,
-      shortDescription: `${hit.name} is a Steam Early Access ${genreNames.filter((genre) => genre !== "Early Access").slice(0, 2).join(" / ") || "game"} by ${(developers[0] ?? "an independent studio")}.`,
-      isEarlyAccess: true,
-      eaStartDate: release.toISOString().slice(0, 10),
-      leftEaAt: null,
+      shortDescription: shortDescriptionFromSteam || fallbackDescription,
+      isEarlyAccess: stillInEa,
+      eaStartDate,
+      leftEaAt,
       reviewScoreDesc: reviewScore || "No user reviews",
       totalPositive: positive,
       totalNegative: Math.max(0, hit.totalReviews - positive),
@@ -358,15 +479,15 @@ async function main() {
       ),
     });
     console.log(
-      `${imported.length}/${TARGET} ${hit.name} (${hit.appid}) ${evaluated.status} score ${evaluated.activityScore}`
+      `${imported.length}/${REFRESH_EXISTING ? hits.length : TARGET} ${hit.name} (${hit.appid}) tags=${tags.length} desc=${shortDescriptionFromSteam ? "steam" : "fallback"} ${evaluated.status}`
     );
-    if (imported.length % 20 === 0) {
-      mkdirSync(new URL("../data/", import.meta.url), { recursive: true });
+    if (imported.length % 10 === 0) {
+      mkdirSync(fileURLToPath(new URL("../data/", import.meta.url)), { recursive: true });
       writeFileSync(OUT, JSON.stringify(imported));
     }
   }
 
-  mkdirSync(new URL("../data/", import.meta.url), { recursive: true });
+  mkdirSync(fileURLToPath(new URL("../data/", import.meta.url)), { recursive: true });
   writeFileSync(OUT, JSON.stringify(imported));
   console.log(`wrote ${imported.length} games`);
 }

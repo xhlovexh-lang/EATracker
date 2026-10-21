@@ -77,6 +77,9 @@ export default async function GenreDirectoryPage({
         <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-50 mb-3">
           {cat.name} Early Access Games on Steam
         </h1>
+        <p className="mb-2 font-mono text-xs text-emerald-400/90">
+          {games.length} tracked game{games.length === 1 ? "" : "s"}
+        </p>
         <p className="max-w-3xl text-sm sm:text-base text-slate-300">
           {cat.description}
         </p>

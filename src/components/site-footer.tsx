@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { GENRE_CATEGORIES } from "../lib/catalog";
+import { FOOTER_GENRE_CATEGORIES } from "../lib/catalog";
 
 export function SiteFooter() {
   return (
@@ -54,7 +54,7 @@ export function SiteFooter() {
               Browse by Genre
             </p>
             <ul className="space-y-2">
-              {GENRE_CATEGORIES.map((g) => (
+              {FOOTER_GENRE_CATEGORIES.map((g) => (
                 <li key={g.slug}>
                   <Link href={`/genre/${g.slug}`} className="hover:text-slate-200">
                     {g.name} Early Access

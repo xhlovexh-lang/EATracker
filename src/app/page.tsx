@@ -329,15 +329,20 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Browse by Genre */}
+        {/* Browse by Genre / Tag — every Steam tag with ≥10 tracked games */}
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-100">
-              Browse Early Access Status by Genre
-            </h2>
+          <div className="flex items-center justify-between mb-4 gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-slate-100">
+                Browse Early Access Status by Genre &amp; Tag
+              </h2>
+              <p className="mt-1 text-xs text-slate-400">
+                Internal directory of Steam tags with at least 10 games in the tracked sample.
+              </p>
+            </div>
             <Link
               href="/stats"
-              className="inline-flex items-center gap-1 text-xs font-medium text-slate-300 hover:text-emerald-400"
+              className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-slate-300 hover:text-emerald-400"
             >
               <BarChart3 className="h-3.5 w-3.5" />
               Annual Early Access Report
@@ -350,9 +355,12 @@ export default function HomePage() {
                 href={`/genre/${genre.slug}`}
                 className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 hover:border-emerald-500/40 hover:bg-slate-900 transition-colors"
               >
-                <p className="font-semibold text-slate-100 text-sm">
-                  {genre.name}
-                </p>
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="font-semibold text-slate-100 text-sm">{genre.name}</p>
+                  <p className="shrink-0 font-mono text-[11px] text-emerald-400/90">
+                    {genre.gameCount} games
+                  </p>
+                </div>
                 <p className="mt-1 text-xs text-slate-400 line-clamp-2">
                   {genre.description}
                 </p>
