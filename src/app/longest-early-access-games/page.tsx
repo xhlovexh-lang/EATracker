@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getAllGames } from "../../lib/catalog";
+import { loadCatalog } from "../../lib/repository";
 import { buildItemListJsonLd, SITE_URL } from "../../lib/seo";
 import { formatDurationDays, formatUtcDate, formatUtcMonthYear } from "../../lib/status-engine";
 import { StatusBadge } from "../../components/status-badge";
@@ -20,8 +20,9 @@ export function generateMetadata(): Metadata {
   };
 }
 
-export default function LongestEarlyAccessPage() {
-  const games = [...getAllGames()].sort(
+export default async function LongestEarlyAccessPage() {
+  const catalog = await loadCatalog();
+  const games = [...catalog.games].sort(
     (a, b) => (b.eaDurationDays ?? 0) - (a.eaDurationDays ?? 0)
   );
 

@@ -2,18 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  GENRE_CATEGORIES,
   getGamesByGenreSlug,
+  isGenreIndexable,
   isKnownGenreSlug,
 } from "../../../lib/catalog";
+import { loadCatalog } from "../../../lib/repository";
 import { buildItemListJsonLd, SITE_URL } from "../../../lib/seo";
 import { GameCard } from "../../../components/game-card";
 
 export const revalidate = 86400;
-export const dynamicParams = false;
+export const dynamicParams = true;
 
 export async function generateStaticParams() {
-  return GENRE_CATEGORIES.map((g) => ({ genre: g.slug }));
+  const catalog = await loadCatalog();
+  return catalog.genres.map((g) => ({ genre: g.slug }));
 }
 
 export async function generateMetadata({
@@ -23,7 +25,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { genre } = await params;
   const normalized = genre.toLowerCase();
-  const cat = GENRE_CATEGORIES.find((c) => c.slug === normalized);
+  const catalog = await loadCatalog();
+  const cat = catalog.genres.find((c) => c.slug === normalized);
 
   if (!cat) {
     return {
@@ -32,12 +35,17 @@ export async function generateMetadata({
     };
   }
 
+  const indexable = isGenreIndexable(cat.gameCount);
+
   return {
     title: `${cat.name} Early Access Games on Steam — Active vs. Abandoned`,
     description: cat.description,
     alternates: {
       canonical: `${SITE_URL}/genre/${cat.slug}`,
     },
+    robots: indexable
+      ? { index: true, follow: true }
+      : { index: false, follow: true },
   };
 }
 
@@ -48,18 +56,39 @@ export default async function GenreDirectoryPage({
 }) {
   const { genre } = await params;
   const normalized = genre.toLowerCase();
+  const catalog = await loadCatalog();
 
-  if (!isKnownGenreSlug(normalized)) {
+  if (!catalog.genres.some((c) => c.slug === normalized) && !isKnownGenreSlug(normalized)) {
     notFound();
   }
 
-  const cat = GENRE_CATEGORIES.find((c) => c.slug === normalized)!;
-  const games = getGamesByGenreSlug(cat.slug);
+  const cat =
+    catalog.genres.find((c) => c.slug === normalized) ??
+    ({
+      slug: normalized,
+      name: normalized,
+      description: "",
+      gameCount: 0,
+    } as const);
+
+  if (!cat.description && !isKnownGenreSlug(normalized)) {
+    notFound();
+  }
+
+  const games = getGamesByGenreSlug(cat.slug, catalog.games);
+  const resolved = catalog.genres.find((c) => c.slug === normalized) ?? {
+    ...cat,
+    gameCount: games.length,
+    description:
+      cat.description ||
+      `${cat.name} Steam Early Access games tracked for update cadence.`,
+    name: cat.name.replace(/(^|\s)\S/g, (t) => t.toUpperCase()),
+  };
 
   const schema = buildItemListJsonLd({
-    title: `${cat.name} Steam Early Access Games`,
-    description: `Update status and abandonment audit for ${cat.name} Early Access games.`,
-    url: `${SITE_URL}/genre/${cat.slug}`,
+    title: `${resolved.name} Steam Early Access Games`,
+    description: `Update status and abandonment audit for ${resolved.name} Early Access games.`,
+    url: `${SITE_URL}/genre/${resolved.slug}`,
     games,
   });
 
@@ -75,23 +104,24 @@ export default async function GenreDirectoryPage({
           Genre Audit Directory
         </p>
         <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-50 mb-3">
-          {cat.name} Early Access Games on Steam
+          {resolved.name} Early Access Games on Steam
         </h1>
         <p className="mb-2 font-mono text-xs text-emerald-400/90">
           {games.length} tracked game{games.length === 1 ? "" : "s"}
+          {!isGenreIndexable(games.length) ? " · noindex (under 20 games)" : ""}
         </p>
         <p className="max-w-3xl text-sm sm:text-base text-slate-300">
-          {cat.description}
+          {resolved.description}
         </p>
       </div>
 
       <div className="mb-8 flex flex-wrap gap-2 text-xs">
-        {GENRE_CATEGORIES.map((c) => (
+        {catalog.genres.slice(0, 40).map((c) => (
           <Link
             key={c.slug}
             href={`/genre/${c.slug}`}
             className={`rounded-lg px-3 py-1.5 font-medium transition-colors ${
-              c.slug === cat.slug
+              c.slug === resolved.slug
                 ? "bg-emerald-500 text-slate-950"
                 : "bg-slate-900 border border-slate-800 text-slate-300 hover:border-slate-700"
             }`}
@@ -103,7 +133,7 @@ export default async function GenreDirectoryPage({
 
       {games.length === 0 ? (
         <p className="text-sm text-slate-400">
-          No tracked games matched genre &ldquo;{cat.name}&rdquo;.
+          No tracked games matched genre &ldquo;{resolved.name}&rdquo;.
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

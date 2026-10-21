@@ -97,7 +97,15 @@ export function buildGameFaqItems(game: GameRecord): Array<{
 
   const leaveEaAnswer = !game.isEarlyAccess
     ? `${game.name} already left Steam Early Access on ${formatUtcDate(game.leftEaAt)}.`
-    : `The developer (${game.developers.join(", ") || "Unknown"}) hasn't announced a confirmed 1.0 graduation date via structured Steam store metadata. Check the latest community announcements below for roadmap milestones.`;
+    : game.planned10TimingText || game.plannedEaDurationText || game.plannedEaEndDate
+      ? `Based on the Steam store Early Access section, the developer has mentioned ${
+          game.planned10TimingText
+            ? `a 1.0 timing of "${game.planned10TimingText}"`
+            : game.plannedEaDurationText
+              ? `an Early Access duration of about ${game.plannedEaDurationText}`
+              : `a planned end around ${formatUtcDate(game.plannedEaEndDate)}`
+        }. This is parsed public store copy, not a contractual commitment.`
+      : `The developer (${game.developers.join(", ") || "Unknown"}) hasn't announced a confirmed 1.0 graduation date via structured Steam store metadata. Check the latest community announcements below for roadmap milestones.`;
 
   return [
     {

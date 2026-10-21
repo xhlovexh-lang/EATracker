@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getAllGames } from "../../lib/catalog";
+import Link from "next/link";
+import { loadCatalog } from "../../lib/repository";
 import { buildItemListJsonLd, SITE_URL } from "../../lib/seo";
 import { GameCard } from "../../components/game-card";
 
@@ -14,8 +15,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function LeftEarlyAccessPage() {
-  const graduated = getAllGames().filter((g) => g.status === "left_early_access");
+export default async function LeftEarlyAccessPage() {
+  const catalog = await loadCatalog();
+  const graduated = catalog.games.filter((g) => g.status === "left_early_access");
 
   const schema = buildItemListJsonLd({
     title: "Games That Left Steam Early Access (1.0 Release Tracker)",
@@ -40,7 +42,11 @@ export default function LeftEarlyAccessPage() {
           Games That Left Steam Early Access (1.0 Release Tracker)
         </h1>
         <p className="max-w-3xl text-sm sm:text-base text-slate-300 leading-relaxed">
-          A frequent player concern is whether a studio genuinely completed its Early Access roadmap or simply slapped a &ldquo;1.0&rdquo; label on an unfinished game and walked away. We keep tracking every graduated title to measure its post-1.0 patch support.
+          A frequent player concern is whether a studio genuinely completed its Early Access roadmap or simply slapped a &ldquo;1.0&rdquo; label on an unfinished game and walked away. We keep tracking every graduated title to measure its post-1.0 patch support. For graduations in the last year, see{" "}
+          <Link href="/recently-left-early-access" className="text-sky-300 hover:underline">
+            Recently Left Early Access
+          </Link>
+          .
         </p>
       </div>
 

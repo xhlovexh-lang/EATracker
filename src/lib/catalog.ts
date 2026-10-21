@@ -1,8 +1,14 @@
 import type { GameStatusType } from "../config/status";
+import {
+  MIN_GAMES_FOR_GENRE_INDEX,
+  MIN_GAMES_FOR_GENRE_PAGE,
+} from "../config/discovery";
 import type { StatusReason } from "../db/schema";
 import { evaluateGameStatus } from "./status-engine";
 import { GENRE_PAGE_INTROS } from "./genre-intros";
 import importedGames from "../../data/imported-games.json";
+
+export { MIN_GAMES_FOR_GENRE_INDEX, MIN_GAMES_FOR_GENRE_PAGE };
 
 export interface MonthlyActivityBin {
   month: string; // YYYY-MM
@@ -45,6 +51,14 @@ export interface GameRecord {
   adult: boolean;
   delisted: boolean;
   externalUpdatesUrl: string | null;
+  /** Concurrent players (ISteamUserStats GetNumberOfCurrentPlayers); null if unknown. */
+  currentPlayers: number | null;
+  /** Parsed developer-planned EA end date (YYYY-MM-DD), if any. */
+  plannedEaEndDate: string | null;
+  /** Raw duration phrase from the Steam Early Access section. */
+  plannedEaDurationText: string | null;
+  /** Raw 1.0 / full-release timing phrase from the Steam Early Access section. */
+  planned10TimingText: string | null;
   status: GameStatusType;
   activityScore: number;
   lastPatchAt: string | null;
@@ -185,6 +199,10 @@ function buildSeedGame(params: {
     adult: false,
     delisted: false,
     externalUpdatesUrl: params.externalUpdatesUrl ?? null,
+    currentPlayers: null,
+    plannedEaEndDate: null,
+    plannedEaDurationText: null,
+    planned10TimingText: null,
     status: evalResult.status,
     activityScore: evalResult.activityScore,
     lastPatchAt: params.lastPatchAt,
@@ -891,7 +909,7 @@ export interface GlobalCatalogStats {
 }
 
 /** Refresh verdict copy from the live status engine so wording stays consistent with dates. */
-function withFreshVerdict(game: GameRecord): GameRecord {
+export function withFreshVerdict(game: GameRecord): GameRecord {
   const evalResult = evaluateGameStatus({
     isEarlyAccessNow: game.isEarlyAccess,
     wasTrackedInEarlyAccess: true,
@@ -912,6 +930,10 @@ function withFreshVerdict(game: GameRecord): GameRecord {
   });
   return {
     ...game,
+    currentPlayers: game.currentPlayers ?? null,
+    plannedEaEndDate: game.plannedEaEndDate ?? null,
+    plannedEaDurationText: game.plannedEaDurationText ?? null,
+    planned10TimingText: game.planned10TimingText ?? null,
     lastActivityAt: evalResult.lastActivityAt?.toISOString() ?? game.lastActivityAt,
     lastShipAt: evalResult.lastShipAt?.toISOString() ?? game.lastShipAt,
     eaDurationDays: evalResult.eaDurationDays ?? game.eaDurationDays,
@@ -919,14 +941,29 @@ function withFreshVerdict(game: GameRecord): GameRecord {
   };
 }
 
+function normalizeImportedGame(raw: GameRecord): GameRecord {
+  return withFreshVerdict({
+    ...raw,
+    currentPlayers: raw.currentPlayers ?? null,
+    plannedEaEndDate: raw.plannedEaEndDate ?? null,
+    plannedEaDurationText: raw.plannedEaDurationText ?? null,
+    planned10TimingText: raw.planned10TimingText ?? null,
+  });
+}
+
 const ALL_GAMES: GameRecord[] = (() => {
   const byId = new Map<number, GameRecord>();
   for (const game of importedGames as GameRecord[]) {
-    byId.set(game.appid, withFreshVerdict(game));
+    byId.set(game.appid, normalizeImportedGame(game));
   }
   for (const game of SEED_GAMES) byId.set(game.appid, game);
   return [...byId.values()];
 })();
+
+/** Synchronous JSON/seed catalog used when Neon is empty or unavailable. */
+export function getJsonFallbackGames(): GameRecord[] {
+  return ALL_GAMES;
+}
 
 function median(values: number[]): number {
   if (values.length === 0) return 0;
@@ -936,7 +973,7 @@ function median(values: number[]): number {
   return Math.round(value);
 }
 
-function buildCatalogStats(games: GameRecord[]): GlobalCatalogStats {
+export function buildCatalogStatsFromGames(games: GameRecord[]): GlobalCatalogStats {
   const count = (status: GameRecord["status"]) => games.filter((game) => game.status === status).length;
   const activeCount = count("active");
   const slowingCount = count("slowing");
@@ -974,21 +1011,18 @@ function buildCatalogStats(games: GameRecord[]): GlobalCatalogStats {
         .filter((days): days is number => days !== null)
         .map((days) => Math.round(days / 30))
     ),
-    lastGlobalSyncUtc: "2026-10-21T08:00:00Z",
+    lastGlobalSyncUtc: new Date().toISOString(),
     yearlyCohortStats: [...years.values()].sort((a, b) => a.year - b.year),
   };
 }
 
-export const GLOBAL_CATALOG_STATS = buildCatalogStats(ALL_GAMES);
+export const GLOBAL_CATALOG_STATS = buildCatalogStatsFromGames(ALL_GAMES);
 
-export function catalogShare(count: number): string {
-  if (!GLOBAL_CATALOG_STATS.totalTracked) return "0% of catalog";
-  const share = Math.round((count / GLOBAL_CATALOG_STATS.totalTracked) * 1000) / 10;
+export function catalogShare(count: number, totalTracked = GLOBAL_CATALOG_STATS.totalTracked): string {
+  if (!totalTracked) return "0% of catalog";
+  const share = Math.round((count / totalTracked) * 1000) / 10;
   return `${share}% of catalog`;
 }
-
-/** Minimum catalog games sharing a Steam tag before we ship a /genre page. */
-export const MIN_GAMES_FOR_GENRE_PAGE = 10;
 
 /** Prefer these as breadcrumb / primary genre resolution order. */
 const PREFERRED_GENRE_ORDER = [
@@ -1020,7 +1054,7 @@ function countGamesByTag(games: GameRecord[]): Map<string, number> {
   return counts;
 }
 
-function buildGenreCategories(
+export function buildGenreCategoriesFromGames(
   games: GameRecord[]
 ): Array<{ slug: string; name: string; description: string; gameCount: number }> {
   const counts = countGamesByTag(games);
@@ -1047,7 +1081,12 @@ function buildGenreCategories(
   return ordered;
 }
 
-export const GENRE_CATEGORIES = buildGenreCategories(ALL_GAMES);
+export const GENRE_CATEGORIES = buildGenreCategoriesFromGames(ALL_GAMES);
+
+/** Whether a genre page should be indexed (thin pages stay noindex). */
+export function isGenreIndexable(gameCount: number): boolean {
+  return gameCount >= MIN_GAMES_FOR_GENRE_INDEX;
+}
 
 /** Compact footer/nav list — preferred genres only (full set lives on the home page). */
 export const FOOTER_GENRE_CATEGORIES = GENRE_CATEGORIES.filter((c) =>
@@ -1085,21 +1124,29 @@ export function getGameByAppId(appid: number): GameRecord | null {
   return ALL_GAMES.find((g) => g.appid === appid) ?? null;
 }
 
-export function getSimilarActiveGames(game: GameRecord, limit = 6): GameRecord[] {
-  return ALL_GAMES.filter(
-    (g) =>
-      g.appid !== game.appid &&
-      g.status === "active" &&
-      (g.genres.some((genre) => game.genres.includes(genre)) ||
-        g.tags.some((tag) => game.tags.includes(tag)))
-  )
+export function getSimilarActiveGames(
+  game: GameRecord,
+  limit = 6,
+  pool: GameRecord[] = ALL_GAMES
+): GameRecord[] {
+  return pool
+    .filter(
+      (g) =>
+        g.appid !== game.appid &&
+        g.status === "active" &&
+        (g.genres.some((genre) => game.genres.includes(genre)) ||
+          g.tags.some((tag) => game.tags.includes(tag)))
+    )
     .sort((a, b) => b.activityScore - a.activityScore)
     .slice(0, limit);
 }
 
-export function getGamesByGenreSlug(genreSlug: string): GameRecord[] {
+export function getGamesByGenreSlug(
+  genreSlug: string,
+  pool: GameRecord[] = ALL_GAMES
+): GameRecord[] {
   const normalized = genreSlug.toLowerCase();
-  return ALL_GAMES.filter(
+  return pool.filter(
     (g) =>
       g.tags.some((t) => t.toLowerCase() === normalized) ||
       g.genres.some((gen) => gen.toLowerCase().includes(normalized))

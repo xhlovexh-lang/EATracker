@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { GENRE_CATEGORIES, GLOBAL_CATALOG_STATS } from "../../../lib/catalog";
+import { isGenreIndexable } from "../../../lib/catalog";
+import { loadCatalog } from "../../../lib/repository";
 import { SITE_URL } from "../../../lib/seo";
 
 export async function GET() {
-  const lastmod = GLOBAL_CATALOG_STATS.lastGlobalSyncUtc.slice(0, 10);
+  const catalog = await loadCatalog();
+  const lastmod = catalog.stats.lastGlobalSyncUtc.slice(0, 10);
 
   const staticPaths = [
     "/",
@@ -11,9 +13,14 @@ export async function GET() {
     "/longest-early-access-games",
     "/recently-updated-early-access-games",
     "/left-early-access",
+    "/recently-left-early-access",
+    "/coming-to-1-0-soon",
     "/stats",
     "/methodology",
-    ...GENRE_CATEGORIES.map((g) => `/genre/${g.slug}`),
+    // Only indexable genre pages (≥ 20 games)
+    ...catalog.genres
+      .filter((g) => isGenreIndexable(g.gameCount))
+      .map((g) => `/genre/${g.slug}`),
   ];
 
   const urlsXml = staticPaths

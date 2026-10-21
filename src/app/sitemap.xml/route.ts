@@ -1,13 +1,22 @@
 import { NextResponse } from "next/server";
 import { SITE_URL } from "../../lib/seo";
-import { GLOBAL_CATALOG_STATS } from "../../lib/catalog";
+import { listIndexableGamesForSitemap, loadCatalog } from "../../lib/repository";
+import { SITEMAP_SHARD_SIZE } from "../../config/discovery";
 
 /**
- * Sitemap Index (`/sitemap.xml`) pointing to `/sitemaps/lists.xml` and `/sitemaps/games-1.xml`
- * per Spec Section 9.4.
+ * Sitemap Index (`/sitemap.xml`) pointing to `/sitemaps/lists.xml` and
+ * sharded `/sitemaps/games-N.xml` files (≤ 5,000 URLs each).
  */
 export async function GET() {
-  const lastmod = GLOBAL_CATALOG_STATS.lastGlobalSyncUtc.slice(0, 10);
+  const catalog = await loadCatalog();
+  const lastmod = catalog.stats.lastGlobalSyncUtc.slice(0, 10);
+  const indexable = await listIndexableGamesForSitemap();
+  const shardCount = Math.max(1, Math.ceil(indexable.length / SITEMAP_SHARD_SIZE));
+
+  const gameSitemaps = Array.from({ length: shardCount }, (_, i) => `  <sitemap>
+    <loc>${SITE_URL}/sitemaps/games/${i + 1}</loc>
+    <lastmod>${lastmod}</lastmod>
+  </sitemap>`).join("\n");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -15,10 +24,7 @@ export async function GET() {
     <loc>${SITE_URL}/sitemaps/lists.xml</loc>
     <lastmod>${lastmod}</lastmod>
   </sitemap>
-  <sitemap>
-    <loc>${SITE_URL}/sitemaps/games-1.xml</loc>
-    <lastmod>${lastmod}</lastmod>
-  </sitemap>
+${gameSitemaps}
 </sitemapindex>`;
 
   return new NextResponse(xml, {

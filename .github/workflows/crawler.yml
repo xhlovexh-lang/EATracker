@@ -1,17 +1,12 @@
 name: Steam Early Access Crawler
 
 on:
-  schedule:
-    # Daily discovery and hot refresh at 02:15 UTC
-    - cron: "15 2 * * *"
-    # Rolling store refresh every 6 hours
-    - cron: "30 */6 * * *"
-    # Weekly full developer news sweep on Sundays at 04:00 UTC
-    - cron: "0 4 * * 0"
+  # Schedule disabled — crawler runs on Vercel Cron (Hobby: once/day per job).
+  # GitHub Actions secrets are not configured; keep manual workflow_dispatch only.
   workflow_dispatch:
     inputs:
       job_type:
-        description: "Crawler job to run (discover | refresh-hot | refresh-store | refresh-all-news | rescore)"
+        description: "Crawler job to run (discover | refresh-hot | refresh-store | refresh-news | refresh-players | rescore | seed-migrate)"
         required: true
         default: "refresh-hot"
 
@@ -37,20 +32,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run Scheduled or Manual Crawler Job
+      - name: Run Manual Crawler Job
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           STEAM_WEB_API_KEY: ${{ secrets.STEAM_WEB_API_KEY }}
           NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
           REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            pnpm tsx crawler/index.ts "${{ github.event.inputs.job_type }}"
-          elif [ "${{ github.event.schedule }}" = "0 4 * * 0" ]; then
-            pnpm tsx crawler/index.ts refresh-all-news
-          elif [ "${{ github.event.schedule }}" = "15 2 * * *" ]; then
-            pnpm tsx crawler/index.ts discover
-            pnpm tsx crawler/index.ts refresh-hot
-          else
-            pnpm tsx crawler/index.ts refresh-store
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL secret is not configured. Prefer Vercel Cron (/api/cron/*)."
+            echo "Exiting without failure so the workflow stays usable as a stub."
+            exit 0
           fi
+          pnpm tsx crawler/index.ts "${{ github.event.inputs.job_type }}"

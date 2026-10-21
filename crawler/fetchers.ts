@@ -188,14 +188,18 @@ export async function fetchSteamCmdBuildInfo(appid: number) {
   };
 }
 
-export async function discoverEarlyAccessCandidateAppIds(maxPages = 5): Promise<number[]> {
+export async function discoverEarlyAccessCandidateAppIds(
+  maxPages = 5,
+  startOffset = 0
+): Promise<number[]> {
   const appIds = new Set<number>();
 
-  // 1. Steam Store Search with tags=493 (Early Access) & category1=998 (Games only)
+  // Steam Store Search with tags=493 (Early Access) & category1=998 (Games only).
+  // Note: results include graduated titles — genre 70 must be confirmed via appdetails.
   for (let page = 0; page < maxPages; page++) {
-    const start = page * 100;
+    const start = startOffset + page * 100;
     const url = `https://store.steampowered.com/search/results/?query&start=${start}&count=100&infinite=1&tags=493&category1=998&cc=us&l=english`;
-    const raw = await rateLimitedGetJson<{ results_html?: string }>(
+    const raw = await rateLimitedGetJson<{ results_html?: string; total_count?: number }>(
       "store.steampowered.com",
       url
     );
@@ -207,7 +211,141 @@ export async function discoverEarlyAccessCandidateAppIds(maxPages = 5): Promise<
       const id = Number.parseInt(match[1], 10);
       if (Number.isFinite(id)) appIds.add(id);
     }
+
+    if (raw.total_count != null && start + 100 >= raw.total_count) break;
   }
 
   return Array.from(appIds);
+}
+
+/**
+ * ISteamUserStats/GetNumberOfCurrentPlayers — no Web API key required.
+ * https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=
+ */
+export async function fetchCurrentPlayerCount(appid: number): Promise<number | null> {
+  const url = `https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=${appid}`;
+  const raw = await rateLimitedGetJson<{
+    response?: { result?: number; player_count?: number };
+  }>("api.steampowered.com", url);
+  if (!raw?.response || raw.response.result !== 1) return null;
+  const count = raw.response.player_count;
+  return typeof count === "number" && Number.isFinite(count) ? count : null;
+}
+
+export interface ParsedEarlyAccessPlan {
+  plannedEaEndDate: string | null;
+  plannedEaDurationText: string | null;
+  planned10TimingText: string | null;
+}
+
+/**
+ * Best-effort parse of the Steam store page "Early Access Game" notice for
+ * developer-stated duration / 1.0 timing. Shares the store host rate limit.
+ */
+export async function fetchEarlyAccessPlanFromStorePage(
+  appid: number
+): Promise<ParsedEarlyAccessPlan | null> {
+  const url = `https://store.steampowered.com/app/${appid}/?l=english&cc=us`;
+  // Reuse rate-limited JSON client path via a small HTML fetch helper.
+  const html = await rateLimitedGetText("store.steampowered.com", url);
+  if (!html) return null;
+  return parseEarlyAccessPlanFromHtml(html);
+}
+
+/** Exported for unit tests. */
+export function parseEarlyAccessPlanFromHtml(html: string): ParsedEarlyAccessPlan {
+  const noticeMatch =
+    html.match(
+      /id="game_area_comingsoon"[^>]*>[\s\S]*?<p[^>]*class="[^"]*game_area_comingsoon_description[^"]*"[^>]*>([\s\S]*?)<\/p>/i
+    ) ||
+    html.match(
+      /<h2[^>]*>\s*Early Access Game\s*<\/h2>([\s\S]*?)(?:<h2|<\/div>\s*<div[^>]*game_area_description)/i
+    ) ||
+    html.match(/Early Access Game([\s\S]{0,2500}?Get updates)/i);
+
+  const block = (noticeMatch?.[1] ?? "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!block) {
+    return {
+      plannedEaEndDate: null,
+      plannedEaDurationText: null,
+      planned10TimingText: null,
+    };
+  }
+
+  const durationMatch = block.match(
+    /(?:approximately|about|around|roughly)?\s*(\d+)\s*(weeks?|months?|years?)/i
+  );
+  const plannedEaDurationText = durationMatch
+    ? `${durationMatch[1]} ${durationMatch[2].toLowerCase()}`
+    : null;
+
+  const timingPatterns: RegExp[] = [
+    /(?:full\s+release|version\s*1\.0|1\.0|leave Early Access|leaving Early Access|graduate)[^.?!]{0,80}?(?:in|by|during|around)\s+(Q[1-4]\s*20\d{2}|[A-Z][a-z]+\s+20\d{2}|20\d{2})/i,
+    /(?:expect(?:ed)?|plan(?:ned)?|aim(?:ing)?|target(?:ing)?)\s+(?:to\s+)?(?:release|launch|ship|graduate|leave Early Access)[^.?!]{0,60}?(Q[1-4]\s*20\d{2}|[A-Z][a-z]+\s+20\d{2}|20\d{2})/i,
+    /(Q[1-4]\s*20\d{2}|[A-Z][a-z]+\s+20\d{2})/,
+  ];
+
+  let planned10TimingText: string | null = null;
+  for (const re of timingPatterns) {
+    const m = block.match(re);
+    if (m) {
+      planned10TimingText = (m[1] || m[0]).replace(/\s+/g, " ").trim();
+      break;
+    }
+  }
+
+  let plannedEaEndDate: string | null = null;
+  if (planned10TimingText) {
+    plannedEaEndDate = coerceTimingToDate(planned10TimingText);
+  } else if (durationMatch) {
+    const n = Number.parseInt(durationMatch[1], 10);
+    const unit = durationMatch[2].toLowerCase();
+    const days =
+      unit.startsWith("year") ? n * 365 : unit.startsWith("month") ? n * 30 : n * 7;
+    const end = new Date(Date.now() + days * 86400_000);
+    plannedEaEndDate = end.toISOString().slice(0, 10);
+  }
+
+  return {
+    plannedEaEndDate,
+    plannedEaDurationText,
+    planned10TimingText,
+  };
+}
+
+function coerceTimingToDate(text: string): string | null {
+  const q = text.match(/Q([1-4])\s*(20\d{2})/i);
+  if (q) {
+    const quarter = Number.parseInt(q[1], 10);
+    const year = Number.parseInt(q[2], 10);
+    const month = (quarter - 1) * 3; // start of quarter (0-indexed)
+    return new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+  }
+  const monthYear = text.match(
+    /(January|February|March|April|May|June|July|August|September|October|November|December)\s+(20\d{2})/i
+  );
+  if (monthYear) {
+    const d = new Date(`${monthYear[1]} 1, ${monthYear[2]} UTC`);
+    if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  }
+  const yearOnly = text.match(/\b(20\d{2})\b/);
+  if (yearOnly) {
+    return `${yearOnly[1]}-01-01`;
+  }
+  return null;
+}
+
+async function rateLimitedGetText(
+  host: "store.steampowered.com",
+  url: string
+): Promise<string | null> {
+  // Local import avoids circular init; mirrors JSON client constraints.
+  const { rateLimitedGetRawText } = await import("./http-client");
+  return rateLimitedGetRawText(host, url);
 }

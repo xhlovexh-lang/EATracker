@@ -1,0 +1,32 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/seed-migrate",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/discover",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-hot",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-store",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-players",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-news",
+      "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/rescore",
+      "schedule": "0 22 * * *"
+    }
+  ]
+}

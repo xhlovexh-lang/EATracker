@@ -10,11 +10,9 @@ import {
   BarChart3,
 } from "lucide-react";
 import {
-  GENRE_CATEGORIES,
-  GLOBAL_CATALOG_STATS,
   catalogShare,
-  getAllGames,
 } from "../lib/catalog";
+import { loadCatalog } from "../lib/repository";
 import { formatUtcDate } from "../lib/status-engine";
 import { GameSearchAutocomplete } from "../components/game-search";
 import { GameCard } from "../components/game-card";
@@ -35,8 +33,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HomePage() {
-  const games = getAllGames();
+export default async function HomePage() {
+  const catalog = await loadCatalog();
+  const games = catalog.games;
+  const GLOBAL_CATALOG_STATS = catalog.stats;
+  const GENRE_CATEGORIES = catalog.genres;
   const searchItems = games.map((g) => ({
     appid: g.appid,
     name: g.name,
@@ -133,28 +134,28 @@ export default function HomePage() {
               <p className="mt-1 text-2xl font-bold font-mono text-emerald-400">
                 {GLOBAL_CATALOG_STATS.activeCount.toLocaleString()}
               </p>
-              <p className="mt-0.5 text-[11px] text-slate-400">{catalogShare(GLOBAL_CATALOG_STATS.activeCount)}</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">{catalogShare(GLOBAL_CATALOG_STATS.activeCount, GLOBAL_CATALOG_STATS.totalTracked)}</p>
             </div>
             <div className="rounded-xl border border-amber-500/25 bg-amber-950/15 p-4">
               <p className="text-xs text-amber-300">Slowing (91–180d)</p>
               <p className="mt-1 text-2xl font-bold font-mono text-amber-400">
                 {GLOBAL_CATALOG_STATS.slowingCount.toLocaleString()}
               </p>
-              <p className="mt-0.5 text-[11px] text-slate-400">{catalogShare(GLOBAL_CATALOG_STATS.slowingCount)}</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">{catalogShare(GLOBAL_CATALOG_STATS.slowingCount, GLOBAL_CATALOG_STATS.totalTracked)}</p>
             </div>
             <div className="rounded-xl border border-orange-500/25 bg-orange-950/15 p-4">
               <p className="text-xs text-orange-300">Stalled (6–12m)</p>
               <p className="mt-1 text-2xl font-bold font-mono text-orange-400">
                 {GLOBAL_CATALOG_STATS.stalledCount.toLocaleString()}
               </p>
-              <p className="mt-0.5 text-[11px] text-slate-400">{catalogShare(GLOBAL_CATALOG_STATS.stalledCount)}</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">{catalogShare(GLOBAL_CATALOG_STATS.stalledCount, GLOBAL_CATALOG_STATS.totalTracked)}</p>
             </div>
             <div className="rounded-xl border border-rose-500/25 bg-rose-950/15 p-4">
               <p className="text-xs text-rose-300">Likely Abandoned (&gt;1y)</p>
               <p className="mt-1 text-2xl font-bold font-mono text-rose-400">
                 {GLOBAL_CATALOG_STATS.abandonedCount.toLocaleString()}
               </p>
-              <p className="mt-0.5 text-[11px] text-slate-400">{catalogShare(GLOBAL_CATALOG_STATS.abandonedCount)}</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">{catalogShare(GLOBAL_CATALOG_STATS.abandonedCount, GLOBAL_CATALOG_STATS.totalTracked)}</p>
             </div>
             <div className="rounded-xl border border-sky-500/25 bg-sky-950/15 p-4">
               <p className="text-xs text-sky-300">Left EA (1.0)</p>
@@ -187,7 +188,7 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Link
               href="/abandoned-early-access-games"
               className="group rounded-xl border border-rose-500/30 bg-rose-950/10 p-5 hover:border-rose-500/60 transition-all"
@@ -249,6 +250,38 @@ export default function HomePage() {
               </p>
               <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-sky-300">
                 Audit 1.0 releases <ArrowRight className="h-3.5 w-3.5" />
+              </span>
+            </Link>
+
+            <Link
+              href="/coming-to-1-0-soon"
+              className="group rounded-xl border border-violet-500/30 bg-violet-950/10 p-5 hover:border-violet-500/60 transition-all"
+            >
+              <Clock className="h-6 w-6 text-violet-400 mb-3" />
+              <h3 className="text-base font-bold text-slate-100 group-hover:text-violet-300">
+                Coming to 1.0 Soon
+              </h3>
+              <p className="mt-1 text-xs text-slate-400 leading-relaxed">
+                Early Access games whose Steam store pages mention a planned 1.0 date or EA duration.
+              </p>
+              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-violet-300">
+                View planned graduations <ArrowRight className="h-3.5 w-3.5" />
+              </span>
+            </Link>
+
+            <Link
+              href="/recently-left-early-access"
+              className="group rounded-xl border border-cyan-500/30 bg-cyan-950/10 p-5 hover:border-cyan-500/60 transition-all"
+            >
+              <ShieldCheck className="h-6 w-6 text-cyan-400 mb-3" />
+              <h3 className="text-base font-bold text-slate-100 group-hover:text-cyan-300">
+                Recently Left Early Access
+              </h3>
+              <p className="mt-1 text-xs text-slate-400 leading-relaxed">
+                Games that graduated from Early Access in the last year, with post-1.0 patch counts.
+              </p>
+              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-cyan-300">
+                See recent graduations <ArrowRight className="h-3.5 w-3.5" />
               </span>
             </Link>
           </div>
@@ -316,10 +349,10 @@ export default function HomePage() {
               </p>
             </div>
             <Link
-              href="/left-early-access"
+              href="/recently-left-early-access"
               className="text-xs font-semibold text-sky-400 hover:underline"
             >
-              View all 1.0 graduations →
+              View recently left EA →
             </Link>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

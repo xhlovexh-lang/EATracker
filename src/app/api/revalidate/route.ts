@@ -20,6 +20,9 @@ export async function POST(req: Request) {
     revalidatePath("/abandoned-early-access-games");
     revalidatePath("/recently-updated-early-access-games");
     revalidatePath("/left-early-access");
+    revalidatePath("/recently-left-early-access");
+    revalidatePath("/coming-to-1-0-soon");
+    revalidatePath("/stats");
 
     return NextResponse.json({
       revalidated: true,
