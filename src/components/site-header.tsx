@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { Activity, ShieldCheck, BarChart3, Clock, AlertTriangle, Sparkles } from "lucide-react";
-import { getAllGames } from "../lib/catalog";
+import { loadCatalog } from "../lib/repository";
 import { formatUtcDate } from "../lib/status-engine";
 import { GameSearchAutocomplete } from "./game-search";
 
-export function SiteHeader() {
-  const games = getAllGames();
-  const searchItems = games.map((g) => ({
+export async function SiteHeader() {
+  const catalog = await loadCatalog();
+  const searchItems = catalog.games.map((g) => ({
     appid: g.appid,
     name: g.name,
     slug: g.slug,
@@ -55,11 +55,18 @@ export function SiteHeader() {
               Recently Updated
             </Link>
             <Link
-              href="/left-early-access"
+              href="/coming-to-1-0-soon"
+              className="inline-flex items-center gap-1 hover:text-violet-300 transition-colors"
+            >
+              <Clock className="h-3.5 w-3.5 text-violet-400" />
+              Coming to 1.0
+            </Link>
+            <Link
+              href="/recently-left-early-access"
               className="inline-flex items-center gap-1 hover:text-sky-300 transition-colors"
             >
               <ShieldCheck className="h-3.5 w-3.5 text-sky-400" />
-              Graduated 1.0
+              Left EA
             </Link>
             <Link
               href="/stats"

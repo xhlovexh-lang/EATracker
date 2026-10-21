@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getAllGames } from "../../lib/catalog";
+import { loadCatalog } from "../../lib/repository";
 import { buildItemListJsonLd, SITE_URL } from "../../lib/seo";
 import { GameCard } from "../../components/game-card";
 
@@ -14,8 +14,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RecentlyUpdatedEarlyAccessPage() {
-  const activeGames = getAllGames()
+export default async function RecentlyUpdatedEarlyAccessPage() {
+  const catalog = await loadCatalog();
+  const activeGames = catalog.games
     .filter((g) => g.status === "active" || g.status === "slowing")
     .sort((a, b) => {
       const da = a.lastActivityAt ? new Date(a.lastActivityAt).getTime() : 0;

@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["undici", "p-queue", "@neondatabase/serverless"],
   images: {
     unoptimized: true,
     remotePatterns: [

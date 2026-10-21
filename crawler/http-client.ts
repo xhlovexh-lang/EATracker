@@ -141,3 +141,71 @@ export async function rateLimitedGetJson<T>(
     return null;
   }) as Promise<T | null>;
 }
+
+/** Rate-limited HTML/text GET (same host buckets as JSON). */
+export async function rateLimitedGetRawText(
+  host: HostBucket,
+  url: string,
+  options?: { maxRetries?: number }
+): Promise<string | null> {
+  const maxRetries = options?.maxRetries ?? 2;
+  const q = queues[host];
+
+  return q.add(async () => {
+    const pausedUntil = hostCircuitPausedUntil[host];
+    if (pausedUntil && Date.now() < pausedUntil) {
+      throw new HostForbiddenError(
+        host,
+        `Host ${host} is paused due to earlier HTTP 403 until ${new Date(pausedUntil).toISOString()}`
+      );
+    }
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const res = await request(url, {
+          method: "GET",
+          headers: {
+            "User-Agent": DEFAULT_UA,
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            Cookie: "birthtime=0; lastagecheckage=1-0-1980; wants_mature_content=1",
+          },
+          headersTimeout: 20_000,
+          bodyTimeout: 20_000,
+        });
+
+        if (res.statusCode === 429) {
+          await res.body.dump();
+          await sleep(5 * 60 * 1000);
+          continue;
+        }
+        if (res.statusCode === 403) {
+          await res.body.dump();
+          hostCircuitPausedUntil[host] = Date.now() + 30 * 60 * 1000;
+          throw new HostForbiddenError(host, `HTTP 403 from ${host} on ${url}`);
+        }
+        if (res.statusCode >= 500) {
+          await res.body.dump();
+          if (attempt < maxRetries) {
+            await sleep(2000 * (attempt + 1));
+            continue;
+          }
+          return null;
+        }
+        if (res.statusCode !== 200) {
+          await res.body.dump();
+          return null;
+        }
+        return await res.body.text();
+      } catch (err) {
+        if (err instanceof HostForbiddenError) throw err;
+        if (attempt < maxRetries) {
+          await sleep(1500 * (attempt + 1));
+          continue;
+        }
+        console.error(`[HTTP Error] ${host} ${url}:`, err);
+        return null;
+      }
+    }
+    return null;
+  }) as Promise<string | null>;
+}

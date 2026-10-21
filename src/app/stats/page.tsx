@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { GLOBAL_CATALOG_STATS, catalogShare } from "../../lib/catalog";
+import { catalogShare } from "../../lib/catalog";
+import { loadCatalog } from "../../lib/repository";
 import { SITE_URL } from "../../lib/seo";
 
 export const revalidate = 86400;
@@ -13,15 +14,18 @@ export const metadata: Metadata = {
   },
 };
 
-export default function StatsPage() {
+export default async function StatsPage() {
+  const catalog = await loadCatalog();
+  const stats = catalog.stats;
+
   const datasetJsonLd = {
     "@context": "https://schema.org",
     "@type": "Dataset",
     name: "Steam Early Access Abandonment & Graduation Statistics (2026)",
     description:
-      `Quantitative dataset measuring update cadence and 12+ month inactivity across ${GLOBAL_CATALOG_STATS.totalTracked.toLocaleString()} tracked Steam Early Access games.`,
+      `Quantitative dataset measuring update cadence and 12+ month inactivity across ${stats.totalTracked.toLocaleString()} tracked Steam Early Access games.`,
     url: `${SITE_URL}/stats`,
-    dateModified: GLOBAL_CATALOG_STATS.lastGlobalSyncUtc,
+    dateModified: stats.lastGlobalSyncUtc,
     creator: {
       "@type": "Organization",
       name: "EA Tracker",
@@ -45,16 +49,15 @@ export default function StatsPage() {
         </h1>
         <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
           As of October 2026, our automated crawler tracks{" "}
-          <strong>{GLOBAL_CATALOG_STATS.totalTracked.toLocaleString()}</strong> games currently or recently in Steam Early Access (Genre ID 70).{" "}
+          <strong>{stats.totalTracked.toLocaleString()}</strong> games currently or recently in Steam Early Access (Genre ID 70).{" "}
           <strong>
-            {GLOBAL_CATALOG_STATS.overOneYearNoUpdate.toLocaleString()} games (
-            {catalogShare(GLOBAL_CATALOG_STATS.overOneYearNoUpdate)})
+            {stats.overOneYearNoUpdate.toLocaleString()} games (
+            {catalogShare(stats.overOneYearNoUpdate, stats.totalTracked)})
           </strong>{" "}
           have gone more than 12 months without a shipped patch note or developer community announcement on Steam.
         </p>
       </div>
 
-      {/* Key Findings Summary Box for Journalists & LLMs */}
       <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 mb-8">
         <h2 className="text-lg font-bold text-slate-100 mb-3">
           Key Findings (October 2026 Snapshot)
@@ -62,24 +65,27 @@ export default function StatsPage() {
         <ul className="space-y-2 text-sm text-slate-300 list-disc pl-5">
           <li>
             <strong>Total Tracked Catalog:</strong>{" "}
-            {GLOBAL_CATALOG_STATS.totalTracked.toLocaleString()} Steam games (verified `type = &quot;game&quot;` with Genre ID 70).
+            {stats.totalTracked.toLocaleString()} Steam games (verified `type = &quot;game&quot;` with Genre ID 70).
           </li>
           <li>
             <strong>12+ Months Without Steam Activity:</strong>{" "}
-            {GLOBAL_CATALOG_STATS.overOneYearNoUpdate.toLocaleString()} games combine Likely Abandoned ({GLOBAL_CATALOG_STATS.abandonedCount.toLocaleString()}) and long-term Stalled projects ({GLOBAL_CATALOG_STATS.stalledCount.toLocaleString()}).
+            {stats.overOneYearNoUpdate.toLocaleString()} games combine Likely Abandoned ({stats.abandonedCount.toLocaleString()}) and long-term Stalled projects ({stats.stalledCount.toLocaleString()}).
           </li>
           <li>
             <strong>Actively Maintained:</strong>{" "}
-            {GLOBAL_CATALOG_STATS.activeCount.toLocaleString()} games ({catalogShare(GLOBAL_CATALOG_STATS.activeCount)}) shipped a patch/build within 90 days or posted a developer update within 60 days.
+            {stats.activeCount.toLocaleString()} games ({catalogShare(stats.activeCount, stats.totalTracked)}) shipped a patch/build within 90 days or posted a developer update within 60 days.
           </li>
           <li>
             <strong>Median Time in Early Access:</strong>{" "}
-            {GLOBAL_CATALOG_STATS.medianEaMonths} months across active titles.
+            {stats.medianEaMonths} months across active titles.
+          </li>
+          <li>
+            <strong>Data source:</strong>{" "}
+            {catalog.source === "database" ? "Neon Postgres" : "JSON fallback"} ({catalog.gameCount.toLocaleString()} rows).
           </li>
         </ul>
       </section>
 
-      {/* Yearly Cohort Breakdown Table */}
       <section className="mb-8">
         <h2 className="text-lg font-bold text-slate-100 mb-4">
           Early Access Cohort Outcomes by Entry Year
@@ -96,7 +102,7 @@ export default function StatsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/80 font-mono">
-              {GLOBAL_CATALOG_STATS.yearlyCohortStats.map((row) => (
+              {stats.yearlyCohortStats.map((row) => (
                 <tr key={row.year} className="hover:bg-slate-800/40">
                   <td className="py-3 px-4 font-bold text-slate-100">{row.year}</td>
                   <td className="py-3 px-4 text-slate-300">
@@ -120,7 +126,6 @@ export default function StatsPage() {
         </div>
       </section>
 
-      {/* Methodology Note per Spec Section 17.5 */}
       <section className="rounded-xl border border-slate-800 bg-slate-950 p-5 text-xs text-slate-400 leading-relaxed">
         <p className="font-semibold text-slate-200 mb-1">
           Statistical Accounting Note:

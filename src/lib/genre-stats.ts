@@ -1,4 +1,5 @@
 import { STATUS_META, type GameStatusType } from "../config/status";
+import { MIN_GAMES_FOR_GENRE_INDEX } from "../config/discovery";
 import type { GameRecord } from "./catalog";
 import {
   daysBetweenUtc,
@@ -6,8 +7,8 @@ import {
   formatUtcDate,
 } from "./status-engine";
 
-/** Genre directory pages below this game count are noindex,follow and omit from sitemaps. */
-export const MIN_GAMES_FOR_GENRE_INDEX = 20;
+/** Re-export so genre pages/tests share one threshold with discovery config. */
+export { MIN_GAMES_FOR_GENRE_INDEX };
 
 /** Snapshot date aligned with status evaluation in the catalog. */
 const GENRE_STATS_NOW = new Date("2026-10-19T12:00:00Z");

@@ -1,18 +1,17 @@
 import { NextResponse } from "next/server";
-import {
-  GENRE_CATEGORIES,
-  GLOBAL_CATALOG_STATS,
-  getGamesByGenreSlug,
-} from "../../../lib/catalog";
+import { loadCatalog } from "../../../lib/repository";
 import { isGenrePageIndexable } from "../../../lib/genre-stats";
 import { SITE_URL } from "../../../lib/seo";
 
 export async function GET() {
-  const lastmod = GLOBAL_CATALOG_STATS.lastGlobalSyncUtc.slice(0, 10);
+  const catalog = await loadCatalog();
+  const lastmod = catalog.stats.lastGlobalSyncUtc.slice(0, 10);
 
-  const indexableGenrePaths = GENRE_CATEGORIES.filter((g) =>
-    isGenrePageIndexable(getGamesByGenreSlug(g.slug).length)
-  ).map((g) => `/genre/${g.slug}`);
+  // Genre indexability uses the same catalog source (DB or JSON fallback)
+  // and #7's <20-games noindex rule.
+  const indexableGenrePaths = catalog.genres
+    .filter((g) => isGenrePageIndexable(g.gameCount))
+    .map((g) => `/genre/${g.slug}`);
 
   const staticPaths = [
     "/",
@@ -20,6 +19,8 @@ export async function GET() {
     "/longest-early-access-games",
     "/recently-updated-early-access-games",
     "/left-early-access",
+    "/recently-left-early-access",
+    "/coming-to-1-0-soon",
     "/stats",
     "/methodology",
     ...indexableGenrePaths,

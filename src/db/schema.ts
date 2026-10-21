@@ -59,6 +59,18 @@ export const games = pgTable(
     delisted: boolean("delisted").default(false),
     externalUpdatesUrl: text("external_updates_url"),
     ccu: integer("ccu").default(0),
+    /** Live concurrent players from ISteamUserStats/GetNumberOfCurrentPlayers (no API key). */
+    currentPlayers: integer("current_players"),
+    currentPlayersCheckedAt: timestamp("current_players_checked_at", {
+      withTimezone: true,
+    }),
+    /**
+     * Developer-stated Early Access duration / 1.0 timing parsed from the
+     * Steam store page Early Access section (best-effort; may be null).
+     */
+    plannedEaEndDate: date("planned_ea_end_date"),
+    plannedEaDurationText: text("planned_ea_duration_text"),
+    planned10TimingText: text("planned_10_timing_text"),
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).defaultNow(),
     storeCheckedAt: timestamp("store_checked_at", { withTimezone: true }),
     newsCheckedAt: timestamp("news_checked_at", { withTimezone: true }),
@@ -67,6 +79,8 @@ export const games = pgTable(
   (table) => [
     index("games_slug_idx").on(table.slug),
     index("games_is_ea_idx").on(table.isEarlyAccess),
+    index("games_planned_ea_end_idx").on(table.plannedEaEndDate),
+    index("games_left_ea_idx").on(table.leftEaAt),
   ]
 );
 

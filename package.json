@@ -15,9 +15,12 @@
     "crawler:discover": "tsx crawler/index.ts discover",
     "crawler:refresh-hot": "tsx crawler/index.ts refresh-hot",
     "crawler:refresh-store": "tsx crawler/index.ts refresh-store",
-    "crawler:refresh-all-news": "tsx crawler/index.ts refresh-all-news",
+    "crawler:refresh-news": "tsx crawler/index.ts refresh-news",
+    "crawler:refresh-players": "tsx crawler/index.ts refresh-players",
     "crawler:rescore": "tsx crawler/index.ts rescore",
-    "crawler:app": "tsx crawler/index.ts app"
+    "crawler:seed-migrate": "tsx crawler/index.ts seed-migrate",
+    "crawler:app": "tsx crawler/index.ts app",
+    "db:ensure": "tsx -e \"import('./src/db/migrate.ts').then(m=>m.ensureSchema().then(console.log))\""
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",

@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { GENRE_CATEGORIES, GLOBAL_CATALOG_STATS, getAllGames } from "../../lib/catalog";
+import { loadCatalog } from "../../lib/repository";
 import { buildItemListJsonLd, SITE_URL } from "../../lib/seo";
 import { GameCard } from "../../components/game-card";
 import { formatUtcMonthYear } from "../../lib/status-engine";
 
 export const revalidate = 86400;
 
-export function generateMetadata(): Metadata {
+export async function generateMetadata(): Promise<Metadata> {
+  const catalog = await loadCatalog();
   const monthYear = formatUtcMonthYear(new Date("2026-10-19T00:00:00Z"));
-  const title = `${GLOBAL_CATALOG_STATS.abandonedCount.toLocaleString()} Abandoned Early Access Games on Steam (${monthYear})`;
-  const description = `Verified directory of ${GLOBAL_CATALOG_STATS.abandonedCount.toLocaleString()} Steam Early Access games with no patch notes, developer announcements, or public branch build updates in over 12 months.`;
+  const title = `${catalog.stats.abandonedCount.toLocaleString()} Abandoned Early Access Games on Steam (${monthYear})`;
+  const description = `Verified directory of ${catalog.stats.abandonedCount.toLocaleString()} Steam Early Access games with no patch notes, developer announcements, or public branch build updates in over 12 months.`;
 
   return {
     title,
@@ -29,8 +30,9 @@ export default async function AbandonedEarlyAccessPage({
   const params = await searchParams;
   const genreFilter = params.genre?.toLowerCase() || "";
   const maxPriceFilter = params.maxPrice ? Number.parseInt(params.maxPrice, 10) : null;
+  const catalog = await loadCatalog();
 
-  const allAbandonedOrStalled = getAllGames().filter(
+  const allAbandonedOrStalled = catalog.games.filter(
     (g) => g.status === "likely_abandoned" || g.status === "stalled"
   );
 
@@ -41,7 +43,7 @@ export default async function AbandonedEarlyAccessPage({
   });
 
   const monthYear = formatUtcMonthYear(new Date("2026-10-19T00:00:00Z"));
-  const listTitle = `${GLOBAL_CATALOG_STATS.abandonedCount.toLocaleString()} Abandoned Early Access Games on Steam (${monthYear})`;
+  const listTitle = `${catalog.stats.abandonedCount.toLocaleString()} Abandoned Early Access Games on Steam (${monthYear})`;
 
   const itemListSchema = buildItemListJsonLd({
     title: listTitle,
@@ -66,9 +68,9 @@ export default async function AbandonedEarlyAccessPage({
           {listTitle}
         </h1>
         <p className="max-w-3xl text-sm sm:text-base text-slate-300 leading-relaxed">
-          Based on our automated audit of {GLOBAL_CATALOG_STATS.totalTracked.toLocaleString()} Steam Early Access titles,{" "}
-          <strong>{GLOBAL_CATALOG_STATS.abandonedCount.toLocaleString()} games</strong> have gone more than 365 days without a patch note, developer announcement, or public depot build update, and another{" "}
-          <strong>{GLOBAL_CATALOG_STATS.stalledCount.toLocaleString()} games</strong> are currently classified as Stalled (6–12 months inactive).
+          Based on our automated audit of {catalog.stats.totalTracked.toLocaleString()} Steam Early Access titles,{" "}
+          <strong>{catalog.stats.abandonedCount.toLocaleString()} games</strong> have gone more than 365 days without a patch note, developer announcement, or public depot build update, and another{" "}
+          <strong>{catalog.stats.stalledCount.toLocaleString()} games</strong> are currently classified as Stalled (6–12 months inactive).
         </p>
       </div>
 
@@ -86,7 +88,7 @@ export default async function AbandonedEarlyAccessPage({
           >
             All Genres
           </Link>
-          {GENRE_CATEGORIES.map((g) => (
+          {catalog.genres.slice(0, 24).map((g) => (
             <Link
               key={g.slug}
               href={`/abandoned-early-access-games?genre=${g.slug}`}

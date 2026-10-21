@@ -5,7 +5,8 @@ import { evaluateGameStatus } from "../src/lib/status-engine";
 import { slugifyGameName } from "../src/lib/slug";
 
 const UA = "EATrackerBot/1.0 (+https://eatrackers.vercel.app/methodology)";
-const TARGET = 240;
+/** Gradual expansion target (~8k real EA games). Local JSON seed stays smaller. */
+const TARGET = Number.parseInt(process.env.IMPORT_TARGET ?? "240", 10);
 const NOW = new Date("2026-10-21T08:00:00Z");
 const OUT = fileURLToPath(new URL("../data/imported-games.json", import.meta.url));
 

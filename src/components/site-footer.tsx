@@ -42,6 +42,16 @@ export function SiteFooter() {
                 </Link>
               </li>
               <li>
+                <Link href="/recently-left-early-access" className="hover:text-slate-200">
+                  Recently Left Early Access
+                </Link>
+              </li>
+              <li>
+                <Link href="/coming-to-1-0-soon" className="hover:text-slate-200">
+                  Coming to 1.0 Soon
+                </Link>
+              </li>
+              <li>
                 <Link href="/stats" className="hover:text-slate-200">
                   Global Early Access Statistics
                 </Link>

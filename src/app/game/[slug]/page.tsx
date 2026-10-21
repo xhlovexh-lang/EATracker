@@ -13,13 +13,16 @@ import {
   Flag,
 } from "lucide-react";
 import {
-  getAllGames,
   getDeveloperStatement,
-  getGameBySlug,
   getSimilarActiveGames,
   isKnownGenreSlug,
   resolvePrimaryGenre,
 } from "../../../lib/catalog";
+import {
+  findGameBySlug,
+  getTopGamesForStaticParams,
+  loadCatalog,
+} from "../../../lib/repository";
 import {
   buildGameFaqItems,
   buildGameJsonLd,
@@ -27,15 +30,18 @@ import {
 } from "../../../lib/seo";
 import { formatDurationDays, formatUtcDate } from "../../../lib/status-engine";
 import { STATUS_META } from "../../../config/status";
+import { PREBUILD_GAME_LIMIT } from "../../../config/discovery";
 import { StatusBadge } from "../../../components/status-badge";
 import { GameCover } from "../../../components/game-cover";
 import { UpdateTimelineChart } from "../../../components/update-timeline-chart";
 import { GameCard } from "../../../components/game-card";
 
 export const revalidate = 86400; // 24h ISR + on-demand revalidation via /api/revalidate
+export const dynamicParams = true; // remaining games render on demand (ISR)
 
 export async function generateStaticParams() {
-  return getAllGames().map((g) => ({ slug: g.slug }));
+  const top = await getTopGamesForStaticParams(PREBUILD_GAME_LIMIT);
+  return top.map((g) => ({ slug: g.slug }));
 }
 
 export async function generateMetadata({
@@ -44,7 +50,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const { game } = getGameBySlug(slug);
+  const { game } = await findGameBySlug(slug);
   if (!game) {
     return {
       title: "Game Not Found",
@@ -79,7 +85,7 @@ export default async function GameDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const { game, redirectToSlug } = getGameBySlug(slug);
+  const { game, redirectToSlug } = await findGameBySlug(slug);
 
   if (redirectToSlug && redirectToSlug !== slug) {
     permanentRedirect(`/game/${redirectToSlug}`);
@@ -89,9 +95,10 @@ export default async function GameDetailPage({
     notFound();
   }
 
+  const catalog = await loadCatalog();
   const schemas = buildGameJsonLd(game);
   const faqs = buildGameFaqItems(game);
-  const similarActive = getSimilarActiveGames(game, 6);
+  const similarActive = getSimilarActiveGames(game, 6, catalog.games);
   const statusMeta = STATUS_META[game.status];
   const primaryGenre = resolvePrimaryGenre(game);
   const developerStatement = getDeveloperStatement(game);
@@ -295,6 +302,30 @@ export default async function GameDetailPage({
             </p>
             <p className="mt-0.5 text-[11px] text-slate-400">
               Since {formatUtcDate(game.eaStartDate)}
+            </p>
+            {(game.planned10TimingText || game.plannedEaDurationText) && (
+              <p className="mt-1 text-[11px] text-sky-300/90">
+                Dev plan:{" "}
+                {game.planned10TimingText ??
+                  (game.plannedEaDurationText
+                    ? `~${game.plannedEaDurationText}`
+                    : null)}
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3.5">
+            <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              <Cpu className="h-3.5 w-3.5 text-violet-400" />
+              <span>Current Players</span>
+            </div>
+            <p className="mt-1.5 text-sm font-bold text-slate-100">
+              {game.currentPlayers != null
+                ? game.currentPlayers.toLocaleString()
+                : "—"}
+            </p>
+            <p className="mt-0.5 text-[11px] text-slate-400">
+              Steam concurrent (no key)
             </p>
           </div>
 
