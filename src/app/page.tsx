@@ -29,6 +29,7 @@ export default function HomePage() {
     status: g.status,
     activityScore: g.activityScore,
     lastUpdateLabel: formatUtcDate(g.lastActivityAt),
+    headerImage: g.headerImage,
   }));
 
   const activeHighlights = games

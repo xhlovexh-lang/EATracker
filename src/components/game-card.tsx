@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { GameRecord } from "../lib/catalog";
 import { formatDurationDays, formatUtcDate } from "../lib/status-engine";
 import { StatusBadge } from "./status-badge";
+import { GameCover } from "./game-cover";
 import { ExternalLink } from "lucide-react";
 
 export function GameCard({ game }: { game: GameRecord }) {
@@ -12,7 +13,17 @@ export function GameCard({ game }: { game: GameRecord }) {
       : "—";
 
   return (
-    <article className="group flex flex-col justify-between rounded-xl border border-slate-800/90 bg-slate-900/60 p-4 hover:border-slate-700 hover:bg-slate-900 transition-all">
+    <article className="group flex flex-col justify-between overflow-hidden rounded-xl border border-slate-800/90 bg-slate-900/60 hover:border-slate-700 hover:bg-slate-900 transition-all">
+      <Link href={`/game/${game.slug}`} aria-label={`${game.name} header image`} className="block bg-slate-950">
+        <GameCover
+          src={game.headerImage}
+          alt={`${game.name} header`}
+          width={460}
+          height={215}
+          className="aspect-[460/215] w-full object-cover"
+        />
+      </Link>
+      <div className="flex flex-1 flex-col justify-between p-4">
       <div>
         <div className="flex items-start justify-between gap-3 mb-2">
           <Link
@@ -73,6 +84,7 @@ export function GameCard({ game }: { game: GameRecord }) {
             </a>
           </div>
         </div>
+      </div>
       </div>
     </article>
   );

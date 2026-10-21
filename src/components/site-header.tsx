@@ -13,6 +13,7 @@ export function SiteHeader() {
     status: g.status,
     activityScore: g.activityScore,
     lastUpdateLabel: formatUtcDate(g.lastActivityAt),
+    headerImage: g.headerImage,
   }));
 
   return (

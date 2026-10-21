@@ -3,6 +3,7 @@ import { getAllGames } from "../../lib/catalog";
 import { buildItemListJsonLd, SITE_URL } from "../../lib/seo";
 import { formatDurationDays, formatUtcDate, formatUtcMonthYear } from "../../lib/status-engine";
 import { StatusBadge } from "../../components/status-badge";
+import { GameCover } from "../../components/game-cover";
 import Link from "next/link";
 
 export const revalidate = 86400;
@@ -69,12 +70,21 @@ export default function LongestEarlyAccessPage() {
               <tr key={g.appid} className="hover:bg-slate-800/40 transition-colors">
                 <td className="py-3.5 px-4 font-mono text-slate-400">{idx + 1}</td>
                 <td className="py-3.5 px-4 font-semibold text-slate-100">
-                  <Link href={`/game/${g.slug}`} className="hover:text-emerald-400">
-                    {g.name}
+                  <Link href={`/game/${g.slug}`} className="flex items-center gap-3 hover:text-emerald-400">
+                    <GameCover
+                      src={g.headerImage}
+                      alt=""
+                      width={92}
+                      height={43}
+                      className="hidden h-10 w-[86px] shrink-0 rounded-md object-cover sm:block"
+                    />
+                    <span>
+                      <span className="block">{g.name}</span>
+                      <span className="block text-[11px] font-normal text-slate-400">
+                        {g.developers.join(", ")}
+                      </span>
+                    </span>
                   </Link>
-                  <p className="text-[11px] font-normal text-slate-400">
-                    {g.developers.join(", ")}
-                  </p>
                 </td>
                 <td className="py-3.5 px-4 font-mono text-slate-300">
                   {formatUtcDate(g.eaStartDate)}

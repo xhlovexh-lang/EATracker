@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Search, ArrowRight } from "lucide-react";
 import { STATUS_META, type GameStatusType } from "../config/status";
+import { GameCover } from "./game-cover";
 
 export interface SearchableGameItem {
   appid: number;
@@ -13,6 +14,7 @@ export interface SearchableGameItem {
   status: GameStatusType;
   activityScore: number;
   lastUpdateLabel: string;
+  headerImage: string;
 }
 
 export function GameSearchAutocomplete({
@@ -100,6 +102,13 @@ export function GameSearchAutocomplete({
                     href={`/game/${item.slug}`}
                     className="flex items-center justify-between gap-3 rounded-lg px-2.5 py-2 hover:bg-slate-800/80 transition-colors"
                   >
+                    <GameCover
+                      src={item.headerImage}
+                      alt=""
+                      width={92}
+                      height={43}
+                      className="h-10 w-[86px] shrink-0 rounded-md object-cover"
+                    />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-slate-100">
                         {item.name}

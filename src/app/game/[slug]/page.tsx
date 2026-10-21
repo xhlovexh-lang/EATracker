@@ -25,6 +25,7 @@ import {
 import { formatDurationDays, formatUtcDate } from "../../../lib/status-engine";
 import { STATUS_META } from "../../../config/status";
 import { StatusBadge } from "../../../components/status-badge";
+import { GameCover } from "../../../components/game-cover";
 import { UpdateTimelineChart } from "../../../components/update-timeline-chart";
 import { GameCard } from "../../../components/game-card";
 
@@ -142,12 +143,12 @@ export default async function GameDetailPage({
       <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 sm:p-7 mb-6">
         <div className="flex flex-col md:flex-row gap-6 items-start">
           <div className="w-full md:w-72 shrink-0 overflow-hidden rounded-xl border border-slate-800 bg-slate-950">
-            <img
+            <GameCover
               src={game.headerImage}
               alt={`${game.name} Steam header capsule`}
               width={460}
               height={215}
-              className="w-full h-auto object-cover"
+              className="aspect-[460/215] w-full object-cover"
             />
           </div>
 
