@@ -1,6 +1,7 @@
 import type { GameStatusType } from "../config/status";
 import type { StatusReason } from "../db/schema";
 import { evaluateGameStatus } from "./status-engine";
+import { GENRE_PAGE_INTROS } from "./genre-intros";
 import importedGames from "../../data/imported-games.json";
 
 export interface MonthlyActivityBin {
@@ -986,48 +987,77 @@ export function catalogShare(count: number): string {
   return `${share}% of catalog`;
 }
 
-export const GENRE_CATEGORIES: Array<{
-  slug: string;
-  name: string;
-  description: string;
-}> = [
-  {
-    slug: "survival",
-    name: "Survival",
-    description:
-      "Open-world survival, crafting, and base-building Steam Early Access games tracked for patch frequency and abandonment risk.",
-  },
-  {
-    slug: "strategy",
-    name: "Strategy & City Builder",
-    description:
-      "4X, RTS, grand strategy, and colony/city builders in Steam Early Access.",
-  },
-  {
-    slug: "rpg",
-    name: "RPG & Action RPG",
-    description:
-      "Role-playing games, dungeon crawlers, and ARPGs currently or formerly in Steam Early Access.",
-  },
-  {
-    slug: "simulation",
-    name: "Simulation & Sandbox",
-    description:
-      "Physics sandboxes, management sims, and vehicle/space simulators in Steam Early Access.",
-  },
-  {
-    slug: "action",
-    name: "Action & Roguelite",
-    description:
-      "Co-op shooters, roguelites, and tactical action titles in Steam Early Access.",
-  },
-  {
-    slug: "space",
-    name: "Space & Sci-Fi",
-    description:
-      "Space exploration, orbital colony sims, and fleet combat games in Steam Early Access.",
-  },
-];
+/** Minimum catalog games sharing a Steam tag before we ship a /genre page. */
+export const MIN_GAMES_FOR_GENRE_PAGE = 10;
+
+/** Prefer these as breadcrumb / primary genre resolution order. */
+const PREFERRED_GENRE_ORDER = [
+  "survival",
+  "strategy",
+  "rpg",
+  "simulation",
+  "action",
+  "space",
+  "adventure",
+  "indie",
+  "horror",
+  "open-world",
+  "co-op",
+  "multiplayer",
+] as const;
+
+function countGamesByTag(games: GameRecord[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const game of games) {
+    const seen = new Set<string>();
+    for (const tag of game.tags) {
+      const slug = tag.toLowerCase();
+      if (seen.has(slug)) continue;
+      seen.add(slug);
+      counts.set(slug, (counts.get(slug) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+function buildGenreCategories(
+  games: GameRecord[]
+): Array<{ slug: string; name: string; description: string; gameCount: number }> {
+  const counts = countGamesByTag(games);
+  const eligible = [...counts.entries()]
+    .filter(([slug, count]) => count >= MIN_GAMES_FOR_GENRE_PAGE && GENRE_PAGE_INTROS[slug])
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+  const bySlug = new Map(
+    eligible.map(([slug, gameCount]) => {
+      const intro = GENRE_PAGE_INTROS[slug]!;
+      return [slug, { slug, name: intro.name, description: intro.description, gameCount }] as const;
+    })
+  );
+
+  const ordered: Array<{ slug: string; name: string; description: string; gameCount: number }> = [];
+  for (const slug of PREFERRED_GENRE_ORDER) {
+    const entry = bySlug.get(slug);
+    if (entry) {
+      ordered.push(entry);
+      bySlug.delete(slug);
+    }
+  }
+  for (const entry of bySlug.values()) ordered.push(entry);
+  return ordered;
+}
+
+export const GENRE_CATEGORIES = buildGenreCategories(ALL_GAMES);
+
+/** Compact footer/nav list — preferred genres only (full set lives on the home page). */
+export const FOOTER_GENRE_CATEGORIES = GENRE_CATEGORIES.filter((c) =>
+  (PREFERRED_GENRE_ORDER as readonly string[]).includes(c.slug)
+);
+
+export function getGenreGameCount(slug: string): number {
+  const cat = GENRE_CATEGORIES.find((c) => c.slug === slug.toLowerCase());
+  return cat?.gameCount ?? getGamesByGenreSlug(slug).length;
+}
 
 export function getAllGames(): GameRecord[] {
   return ALL_GAMES;
@@ -1082,15 +1112,19 @@ export function resolvePrimaryGenre(
 ): { slug: string; name: string } | null {
   const tagSet = new Set(game.tags.map((t) => t.toLowerCase()));
   const genreText = game.genres.map((g) => g.toLowerCase());
+  // Prefer specific tags over the universal early-access bucket for breadcrumbs.
+  const candidates = GENRE_CATEGORIES.filter((c) => c.slug !== "early-access");
 
-  for (const cat of GENRE_CATEGORIES) {
+  for (const cat of candidates) {
     if (tagSet.has(cat.slug)) return { slug: cat.slug, name: cat.name };
   }
-  for (const cat of GENRE_CATEGORIES) {
+  for (const cat of candidates) {
     if (genreText.some((g) => g.includes(cat.slug) || cat.name.toLowerCase().includes(g))) {
       return { slug: cat.slug, name: cat.name };
     }
   }
+  const ea = GENRE_CATEGORIES.find((c) => c.slug === "early-access");
+  if (ea && tagSet.has("early-access")) return { slug: ea.slug, name: ea.name };
   return null;
 }
 
