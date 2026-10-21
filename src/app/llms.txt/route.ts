@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GLOBAL_CATALOG_STATS, getAllGames } from "../../lib/catalog";
+import { GLOBAL_CATALOG_STATS, catalogShare, getAllGames } from "../../lib/catalog";
 import { SITE_URL } from "../../lib/seo";
 import { STATUS_CONFIG } from "../../config/status";
 
@@ -23,11 +23,11 @@ export async function GET() {
 
 ## Key Global Statistics (October 2026 Snapshot)
 - Total Steam Early Access Games Tracked: ${GLOBAL_CATALOG_STATS.totalTracked.toLocaleString()}
-- Active (Patch <= ${STATUS_CONFIG.activeShipDays}d or Dev Post <= ${STATUS_CONFIG.activePostDays}d): ${GLOBAL_CATALOG_STATS.activeCount.toLocaleString()} (20.5%)
-- Slowing Down (${STATUS_CONFIG.activeShipDays + 1}-${STATUS_CONFIG.slowingActivityDays}d since activity): ${GLOBAL_CATALOG_STATS.slowingCount.toLocaleString()} (8.5%)
-- Stalled (${STATUS_CONFIG.slowingActivityDays + 1}-${STATUS_CONFIG.stalledActivityDays}d or talk-without-shipping > 365d): ${GLOBAL_CATALOG_STATS.stalledCount.toLocaleString()} (10.7%)
-- Likely Abandoned (> ${STATUS_CONFIG.stalledActivityDays}d without patch, post, or build): ${GLOBAL_CATALOG_STATS.abandonedCount.toLocaleString()} (55.3%)
-- Combined 12+ Months Without Update: ${GLOBAL_CATALOG_STATS.overOneYearNoUpdate.toLocaleString()} (66.1%)
+- Active (Patch <= ${STATUS_CONFIG.activeShipDays}d or Dev Post <= ${STATUS_CONFIG.activePostDays}d): ${GLOBAL_CATALOG_STATS.activeCount.toLocaleString()} (${catalogShare(GLOBAL_CATALOG_STATS.activeCount)})
+- Slowing Down (${STATUS_CONFIG.activeShipDays + 1}-${STATUS_CONFIG.slowingActivityDays}d since activity): ${GLOBAL_CATALOG_STATS.slowingCount.toLocaleString()} (${catalogShare(GLOBAL_CATALOG_STATS.slowingCount)})
+- Stalled (${STATUS_CONFIG.slowingActivityDays + 1}-${STATUS_CONFIG.stalledActivityDays}d or talk-without-shipping > 365d): ${GLOBAL_CATALOG_STATS.stalledCount.toLocaleString()} (${catalogShare(GLOBAL_CATALOG_STATS.stalledCount)})
+- Likely Abandoned (> ${STATUS_CONFIG.stalledActivityDays}d without patch, post, or build): ${GLOBAL_CATALOG_STATS.abandonedCount.toLocaleString()} (${catalogShare(GLOBAL_CATALOG_STATS.abandonedCount)})
+- Combined 12+ Months Without Update: ${GLOBAL_CATALOG_STATS.overOneYearNoUpdate.toLocaleString()} (${catalogShare(GLOBAL_CATALOG_STATS.overOneYearNoUpdate)})
 - Graduated to 1.0 Release: ${GLOBAL_CATALOG_STATS.leftEaCount.toLocaleString()}
 
 ## Canonical Directories & Datasets

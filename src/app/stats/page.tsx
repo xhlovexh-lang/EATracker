@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { GLOBAL_CATALOG_STATS } from "../../lib/catalog";
+import { GLOBAL_CATALOG_STATS, catalogShare } from "../../lib/catalog";
 import { SITE_URL } from "../../lib/seo";
 
 export const revalidate = 86400;
@@ -19,7 +19,7 @@ export default function StatsPage() {
     "@type": "Dataset",
     name: "Steam Early Access Abandonment & Graduation Statistics (2026)",
     description:
-      "Quantitative dataset measuring update cadence, 1.0 graduation rates, and 12+ month inactivity across 10,482 Steam Early Access games.",
+      `Quantitative dataset measuring update cadence and 12+ month inactivity across ${GLOBAL_CATALOG_STATS.totalTracked.toLocaleString()} tracked Steam Early Access games.`,
     url: `${SITE_URL}/stats`,
     dateModified: GLOBAL_CATALOG_STATS.lastGlobalSyncUtc,
     creator: {
@@ -46,7 +46,11 @@ export default function StatsPage() {
         <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
           As of October 2026, our automated crawler tracks{" "}
           <strong>{GLOBAL_CATALOG_STATS.totalTracked.toLocaleString()}</strong> games currently or recently in Steam Early Access (Genre ID 70).{" "}
-          <strong>{GLOBAL_CATALOG_STATS.overOneYearNoUpdate.toLocaleString()} games (66.1%)</strong> have gone more than 12 months without a shipped patch note or developer community announcement on Steam.
+          <strong>
+            {GLOBAL_CATALOG_STATS.overOneYearNoUpdate.toLocaleString()} games (
+            {catalogShare(GLOBAL_CATALOG_STATS.overOneYearNoUpdate)})
+          </strong>{" "}
+          have gone more than 12 months without a shipped patch note or developer community announcement on Steam.
         </p>
       </div>
 
@@ -66,7 +70,7 @@ export default function StatsPage() {
           </li>
           <li>
             <strong>Actively Maintained:</strong>{" "}
-            {GLOBAL_CATALOG_STATS.activeCount.toLocaleString()} games (20.5%) shipped a patch/build within 90 days or posted a developer update within 60 days.
+            {GLOBAL_CATALOG_STATS.activeCount.toLocaleString()} games ({catalogShare(GLOBAL_CATALOG_STATS.activeCount)}) shipped a patch/build within 90 days or posted a developer update within 60 days.
           </li>
           <li>
             <strong>Median Time in Early Access:</strong>{" "}
@@ -78,7 +82,7 @@ export default function StatsPage() {
       {/* Yearly Cohort Breakdown Table */}
       <section className="mb-8">
         <h2 className="text-lg font-bold text-slate-100 mb-4">
-          Early Access Cohort Outcomes by Entry Year (2019–2026)
+          Early Access Cohort Outcomes by Entry Year
         </h2>
         <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60">
           <table className="w-full text-left text-xs sm:text-sm">

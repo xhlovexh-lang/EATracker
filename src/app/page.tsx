@@ -11,6 +11,7 @@ import {
 import {
   GENRE_CATEGORIES,
   GLOBAL_CATALOG_STATS,
+  catalogShare,
   getAllGames,
 } from "../lib/catalog";
 import { formatUtcDate } from "../lib/status-engine";
@@ -119,28 +120,28 @@ export default function HomePage() {
               <p className="mt-1 text-2xl font-bold font-mono text-emerald-400">
                 {GLOBAL_CATALOG_STATS.activeCount.toLocaleString()}
               </p>
-              <p className="mt-0.5 text-[11px] text-slate-400">20.5% of catalog</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">{catalogShare(GLOBAL_CATALOG_STATS.activeCount)}</p>
             </div>
             <div className="rounded-xl border border-amber-500/25 bg-amber-950/15 p-4">
               <p className="text-xs text-amber-300">Slowing (91–180d)</p>
               <p className="mt-1 text-2xl font-bold font-mono text-amber-400">
                 {GLOBAL_CATALOG_STATS.slowingCount.toLocaleString()}
               </p>
-              <p className="mt-0.5 text-[11px] text-slate-400">8.5% of catalog</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">{catalogShare(GLOBAL_CATALOG_STATS.slowingCount)}</p>
             </div>
             <div className="rounded-xl border border-orange-500/25 bg-orange-950/15 p-4">
               <p className="text-xs text-orange-300">Stalled (6–12m)</p>
               <p className="mt-1 text-2xl font-bold font-mono text-orange-400">
                 {GLOBAL_CATALOG_STATS.stalledCount.toLocaleString()}
               </p>
-              <p className="mt-0.5 text-[11px] text-slate-400">10.7% of catalog</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">{catalogShare(GLOBAL_CATALOG_STATS.stalledCount)}</p>
             </div>
             <div className="rounded-xl border border-rose-500/25 bg-rose-950/15 p-4">
               <p className="text-xs text-rose-300">Likely Abandoned (&gt;1y)</p>
               <p className="mt-1 text-2xl font-bold font-mono text-rose-400">
                 {GLOBAL_CATALOG_STATS.abandonedCount.toLocaleString()}
               </p>
-              <p className="mt-0.5 text-[11px] text-slate-400">55.3% of catalog</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">{catalogShare(GLOBAL_CATALOG_STATS.abandonedCount)}</p>
             </div>
             <div className="rounded-xl border border-sky-500/25 bg-sky-950/15 p-4">
               <p className="text-xs text-sky-300">Left EA (1.0)</p>

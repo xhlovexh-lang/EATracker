@@ -1,6 +1,7 @@
 import type { GameStatusType } from "../config/status";
 import type { StatusReason } from "../db/schema";
 import { evaluateGameStatus } from "./status-engine";
+import importedGames from "../../data/imported-games.json";
 
 export interface MonthlyActivityBin {
   month: string; // YYYY-MM
@@ -888,27 +889,71 @@ export interface GlobalCatalogStats {
   }>;
 }
 
-export const GLOBAL_CATALOG_STATS: GlobalCatalogStats = {
-  totalTracked: 10482,
-  activeCount: 2145,
-  slowingCount: 894,
-  stalledCount: 1126,
-  abandonedCount: 5798,
-  leftEaCount: 519,
-  overOneYearNoUpdate: 6924,
-  medianEaMonths: 31,
-  lastGlobalSyncUtc: "2026-10-19T06:00:00Z",
-  yearlyCohortStats: [
-    { year: 2019, enteredEa: 1120, graduated10: 295, stalledOrAbandoned: 760, activeOrSlowing: 65 },
-    { year: 2020, enteredEa: 1340, graduated10: 340, stalledOrAbandoned: 905, activeOrSlowing: 95 },
-    { year: 2021, enteredEa: 1490, graduated10: 365, stalledOrAbandoned: 980, activeOrSlowing: 145 },
-    { year: 2022, enteredEa: 1610, graduated10: 330, stalledOrAbandoned: 1040, activeOrSlowing: 240 },
-    { year: 2023, enteredEa: 1785, graduated10: 290, stalledOrAbandoned: 1095, activeOrSlowing: 400 },
-    { year: 2024, enteredEa: 1920, graduated10: 215, stalledOrAbandoned: 960, activeOrSlowing: 745 },
-    { year: 2025, enteredEa: 1840, graduated10: 110, stalledOrAbandoned: 690, activeOrSlowing: 1040 },
-    { year: 2026, enteredEa: 1395, graduated10: 42, stalledOrAbandoned: 158, activeOrSlowing: 1195 },
-  ],
-};
+const ALL_GAMES: GameRecord[] = (() => {
+  const byId = new Map<number, GameRecord>();
+  for (const game of importedGames as GameRecord[]) byId.set(game.appid, game);
+  for (const game of SEED_GAMES) byId.set(game.appid, game);
+  return [...byId.values()];
+})();
+
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const value = sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!;
+  return Math.round(value);
+}
+
+function buildCatalogStats(games: GameRecord[]): GlobalCatalogStats {
+  const count = (status: GameRecord["status"]) => games.filter((game) => game.status === status).length;
+  const activeCount = count("active");
+  const slowingCount = count("slowing");
+  const stalledCount = count("stalled");
+  const abandonedCount = count("likely_abandoned");
+  const leftEaCount = count("left_early_access");
+  const years = new Map<number, GlobalCatalogStats["yearlyCohortStats"][number]>();
+  for (const game of games) {
+    const year = game.eaStartDate ? Number(game.eaStartDate.slice(0, 4)) : 0;
+    if (!year) continue;
+    const row = years.get(year) ?? {
+      year,
+      enteredEa: 0,
+      graduated10: 0,
+      stalledOrAbandoned: 0,
+      activeOrSlowing: 0,
+    };
+    row.enteredEa += 1;
+    if (game.status === "left_early_access") row.graduated10 += 1;
+    if (game.status === "stalled" || game.status === "likely_abandoned") row.stalledOrAbandoned += 1;
+    if (game.status === "active" || game.status === "slowing") row.activeOrSlowing += 1;
+    years.set(year, row);
+  }
+  return {
+    totalTracked: games.length,
+    activeCount,
+    slowingCount,
+    stalledCount,
+    abandonedCount,
+    leftEaCount,
+    overOneYearNoUpdate: stalledCount + abandonedCount,
+    medianEaMonths: median(
+      games
+        .map((game) => game.eaDurationDays)
+        .filter((days): days is number => days !== null)
+        .map((days) => Math.round(days / 30))
+    ),
+    lastGlobalSyncUtc: "2026-10-21T08:00:00Z",
+    yearlyCohortStats: [...years.values()].sort((a, b) => a.year - b.year),
+  };
+}
+
+export const GLOBAL_CATALOG_STATS = buildCatalogStats(ALL_GAMES);
+
+export function catalogShare(count: number): string {
+  if (!GLOBAL_CATALOG_STATS.totalTracked) return "0% of catalog";
+  const share = Math.round((count / GLOBAL_CATALOG_STATS.totalTracked) * 1000) / 10;
+  return `${share}% of catalog`;
+}
 
 export const GENRE_CATEGORIES: Array<{
   slug: string;
@@ -954,21 +999,20 @@ export const GENRE_CATEGORIES: Array<{
 ];
 
 export function getAllGames(): GameRecord[] {
-  return SEED_GAMES;
+  return ALL_GAMES;
 }
 
 export function getGameBySlug(slug: string): {
   game: GameRecord | null;
   redirectToSlug?: string;
 } {
-  const direct = SEED_GAMES.find((g) => g.slug === slug);
+  const direct = ALL_GAMES.find((g) => g.slug === slug);
   if (direct) return { game: direct };
 
-  // Check if slug ends with -appid
   const match = slug.match(/-(\d+)$/);
   if (match) {
     const id = Number.parseInt(match[1], 10);
-    const byId = SEED_GAMES.find((g) => g.appid === id);
+    const byId = ALL_GAMES.find((g) => g.appid === id);
     if (byId) {
       return { game: byId, redirectToSlug: byId.slug };
     }
@@ -977,11 +1021,11 @@ export function getGameBySlug(slug: string): {
 }
 
 export function getGameByAppId(appid: number): GameRecord | null {
-  return SEED_GAMES.find((g) => g.appid === appid) ?? null;
+  return ALL_GAMES.find((g) => g.appid === appid) ?? null;
 }
 
 export function getSimilarActiveGames(game: GameRecord, limit = 6): GameRecord[] {
-  return SEED_GAMES.filter(
+  return ALL_GAMES.filter(
     (g) =>
       g.appid !== game.appid &&
       g.status === "active" &&
@@ -994,7 +1038,7 @@ export function getSimilarActiveGames(game: GameRecord, limit = 6): GameRecord[]
 
 export function getGamesByGenreSlug(genreSlug: string): GameRecord[] {
   const normalized = genreSlug.toLowerCase();
-  return SEED_GAMES.filter(
+  return ALL_GAMES.filter(
     (g) =>
       g.tags.some((t) => t.toLowerCase() === normalized) ||
       g.genres.some((gen) => gen.toLowerCase().includes(normalized))
