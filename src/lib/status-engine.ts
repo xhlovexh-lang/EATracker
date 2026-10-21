@@ -85,8 +85,13 @@ export function daysBetweenUtc(from: Date, to: Date): number {
 export function formatDurationDays(days: number | null | undefined): string {
   if (days === null || days === undefined || days < 0) return "Unknown duration";
   if (days < 30) return `${days} day${days === 1 ? "" : "s"}`;
-  const years = Math.floor(days / 365);
-  const months = Math.floor((days % 365) / 30);
+  let years = Math.floor(days / 365);
+  let months = Math.floor((days % 365) / 30);
+  // 365-day remainder can land on 12 months (e.g. 1094 → 2y 12m); roll into the next year.
+  if (months >= 12) {
+    years += 1;
+    months = 0;
+  }
   if (years === 0) {
     return `${months} month${months === 1 ? "" : "s"}`;
   }
@@ -358,7 +363,7 @@ function buildVerdictSummary(params: {
         : "no recorded game patch on Steam in over 12 months";
       return `Stalled — developer posted on ${formatUtcDate(lastDevPostAt)}, but ${shipPart}.`;
     }
-    return `Stalled — last developer activity ${months} months ago (${formatUtcDate(lastActivityAt)}).${lastShipAt ? ` Last patch: ${formatUtcDate(lastShipAt)}.` : ""}`;
+    return `Stalled — last developer activity ${months} months ago (${formatUtcDate(lastActivityAt)}).${lastShipAt ? ` Last update: ${formatUtcDate(lastShipAt)}.` : ""}`;
   }
 
   return `Likely abandoned — no patch or developer post on Steam for ${months} months (last: ${formatUtcDate(lastActivityAt)}).`;

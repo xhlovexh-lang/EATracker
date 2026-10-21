@@ -1,5 +1,9 @@
 import { STATUS_META } from "../config/status";
-import type { GameRecord } from "./catalog";
+import {
+  getDeveloperStatement,
+  resolvePrimaryGenre,
+  type GameRecord,
+} from "./catalog";
 import {
   formatDurationDays,
   formatUtcDate,
@@ -10,14 +14,27 @@ export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://eatrackers.vercel.app";
 export const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || "EA Tracker";
 
+/** Truncate SEO titles on a word boundary instead of mid-word. */
+export function truncateTitleAtWord(title: string, max = 60): string {
+  if (title.length <= max) return title;
+  const sliced = title.slice(0, max);
+  const lastSpace = sliced.lastIndexOf(" ");
+  if (lastSpace > Math.floor(max * 0.5)) {
+    return sliced.slice(0, lastSpace).replace(/[.,:;!?–—-]+$/u, "").trimEnd();
+  }
+  return sliced.trimEnd();
+}
+
 /**
  * Title & Meta Generator per Spec Section 9.2:
  * - Game Title: `Is {Game} Abandoned? Last Update {Mon YYYY} ({Status})` (<= 60 chars; drop parenthetical if >60)
  * - Game Meta: `{Game} has been in Early Access for {duration}. Last patch: {date}. Last developer post: {date}. Updated {n} times in the past year. Status: {Status}.`
+ *
+ * "Last Update" prefers a shipped patch/build date so a developer post is never presented as the latest patch.
  */
 export function buildGameSeoMeta(game: GameRecord) {
   const lastUpdateMonthYear = formatUtcMonthYear(
-    game.lastActivityAt ?? game.lastPatchAt ?? game.lastDevPostAt
+    game.lastShipAt ?? game.lastPatchAt ?? game.lastBuildAt ?? game.lastActivityAt
   );
   const statusShort = STATUS_META[game.status].shortLabel;
 
@@ -27,7 +44,10 @@ export function buildGameSeoMeta(game: GameRecord) {
 
   let title = fullTitle;
   if (fullTitle.length > 60) {
-    title = compactTitle.length <= 60 ? compactTitle : minimalTitle.slice(0, 60);
+    title =
+      compactTitle.length <= 60
+        ? compactTitle
+        : truncateTitleAtWord(minimalTitle, 60);
   }
 
   const durationStr = formatDurationDays(game.eaDurationDays);
@@ -56,13 +76,18 @@ export function buildGameFaqItems(game: GameRecord): Array<{
   const lastBuildDate = formatUtcDate(game.lastBuildAt);
   const duration = formatDurationDays(game.eaDurationDays);
   const eaStart = formatUtcDate(game.eaStartDate);
+  const developerStatement = getDeveloperStatement(game);
 
-  const isAbandonedAnswer =
+  let isAbandonedAnswer =
     game.status === "likely_abandoned"
       ? `Based on public Steam records, ${game.name} is currently classified as Likely Abandoned (Activity Score: ${game.activityScore}/100). The last recorded developer activity on Steam was on ${formatUtcDate(game.lastActivityAt)}, with ${game.patches12m} patches and ${game.posts12m} developer announcements in the past 12 months.`
       : game.status === "left_early_access"
         ? `No. ${game.name} graduated from Steam Early Access to full 1.0 release on ${formatUtcDate(game.leftEaAt)} and has shipped ${game.post10Patches} update(s) since leaving Early Access.`
         : `${game.name} is currently classified as ${statusLabel} with an Activity Score of ${game.activityScore}/100. In the past 12 months, the developer shipped ${game.patches12m} patch(es) and posted ${game.posts12m} community announcement(s) on Steam.`;
+
+  if (developerStatement) {
+    isAbandonedAnswer += ` Developer statement (${formatUtcDate(developerStatement.date)}): ${developerStatement.summary}`;
+  }
 
   const lastUpdatedAnswer = `The last official patch note for ${game.name} on Steam was published on ${lastPatchDate}, and the most recent developer announcement was posted on ${lastPostDate}.${game.lastBuildAt ? ` Public branch depot data indicates a build update on ${lastBuildDate}.` : ""}`;
 
@@ -101,6 +126,16 @@ export function buildGameFaqItems(game: GameRecord): Array<{
 export function buildGameJsonLd(game: GameRecord) {
   const faqs = buildGameFaqItems(game);
   const gameUrl = `${SITE_URL}/game/${game.slug}`;
+  const primaryGenre = resolvePrimaryGenre(game);
+  const genreCrumb = primaryGenre
+    ? {
+        name: primaryGenre.name,
+        item: `${SITE_URL}/genre/${primaryGenre.slug}`,
+      }
+    : {
+        name: "Abandoned Early Access Games",
+        item: `${SITE_URL}/abandoned-early-access-games`,
+      };
 
   const videoGameSchema = {
     "@context": "https://schema.org",
@@ -151,8 +186,8 @@ export function buildGameJsonLd(game: GameRecord) {
       {
         "@type": "ListItem",
         position: 2,
-        name: game.genres[0] || "Early Access Games",
-        item: `${SITE_URL}/genre/${(game.tags[0] || "survival").toLowerCase()}`,
+        name: genreCrumb.name,
+        item: genreCrumb.item,
       },
       {
         "@type": "ListItem",

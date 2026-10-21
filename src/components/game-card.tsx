@@ -43,9 +43,9 @@ export function GameCard({ game }: { game: GameRecord }) {
       <div>
         <dl className="grid grid-cols-3 gap-2 border-t border-slate-800/80 pt-3 text-xs">
           <div>
-            <dt className="text-slate-400">Last Patch</dt>
+            <dt className="text-slate-400">Last Activity</dt>
             <dd className="font-medium text-slate-200 mt-0.5">
-              {formatUtcDate(game.lastPatchAt)}
+              {formatUtcDate(game.lastActivityAt ?? game.lastPatchAt)}
             </dd>
           </div>
           <div>

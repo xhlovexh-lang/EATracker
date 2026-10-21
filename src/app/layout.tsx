@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
+import { GLOBAL_CATALOG_STATS } from "../lib/catalog";
 import { SITE_NAME, SITE_URL } from "../lib/seo";
+
+const trackedCount = GLOBAL_CATALOG_STATS.totalTracked;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -10,17 +13,12 @@ export const metadata: Metadata = {
     default: `Is That Early Access Game Abandoned? | ${SITE_NAME}`,
     template: `%s | ${SITE_NAME}`,
   },
-  description:
-    "We track every Steam Early Access game's patch notes, developer community announcements, and depot build timestamps daily to verify whether a game is active, stalled, or abandoned.",
-  alternates: {
-    canonical: SITE_URL,
-  },
+  description: `We track ${trackedCount} popular Steam Early Access games' patch notes, developer community announcements, and depot build timestamps daily to verify whether a game is active, stalled, or abandoned.`,
   openGraph: {
     type: "website",
     siteName: SITE_NAME,
     title: `Is That Early Access Game Abandoned? | ${SITE_NAME}`,
-    description:
-      "Daily automated audit of 10,482+ Steam Early Access games. Check last patch date, developer post frequency, and 1.0 graduation status before you buy.",
+    description: `Daily automated audit of ${trackedCount} Steam Early Access games. Check last patch date, developer post frequency, and 1.0 graduation status before you buy.`,
     url: SITE_URL,
   },
   robots: {

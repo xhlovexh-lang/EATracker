@@ -2,7 +2,7 @@
   "name": "steam-early-access-abandoned",
   "version": "1.0.0",
   "private": true,
-  "description": "Is [Game] Abandoned? Track every Steam Early Access game's update cadence, patch history, and abandonment status.",
+  "description": "Is [Game] Abandoned? Track Steam Early Access games' update cadence, patch history, and abandonment status.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

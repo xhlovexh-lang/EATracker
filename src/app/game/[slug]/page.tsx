@@ -14,8 +14,11 @@ import {
 } from "lucide-react";
 import {
   getAllGames,
+  getDeveloperStatement,
   getGameBySlug,
   getSimilarActiveGames,
+  isKnownGenreSlug,
+  resolvePrimaryGenre,
 } from "../../../lib/catalog";
 import {
   buildGameFaqItems,
@@ -90,6 +93,9 @@ export default async function GameDetailPage({
   const faqs = buildGameFaqItems(game);
   const similarActive = getSimilarActiveGames(game, 6);
   const statusMeta = STATUS_META[game.status];
+  const primaryGenre = resolvePrimaryGenre(game);
+  const developerStatement = getDeveloperStatement(game);
+  const genreTags = game.tags.filter((tag) => isKnownGenreSlug(tag));
 
   const positivePct =
     game.totalReviews > 0
@@ -122,12 +128,21 @@ export default async function GameDetailPage({
           Home
         </Link>
         <span>/</span>
-        <Link
-          href={`/genre/${(game.tags[0] || "survival").toLowerCase()}`}
-          className="hover:text-slate-200 capitalize"
-        >
-          {game.tags[0] || "Early Access"}
-        </Link>
+        {primaryGenre ? (
+          <Link
+            href={`/genre/${primaryGenre.slug}`}
+            className="hover:text-slate-200"
+          >
+            {primaryGenre.name}
+          </Link>
+        ) : (
+          <Link
+            href="/abandoned-early-access-games"
+            className="hover:text-slate-200"
+          >
+            Abandoned Early Access Games
+          </Link>
+        )}
         <span>/</span>
         <span className="text-slate-200 font-medium truncate">{game.name}</span>
       </nav>
@@ -180,7 +195,7 @@ export default async function GameDetailPage({
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
 
-              {game.tags.map((tag) => (
+              {genreTags.map((tag) => (
                 <Link
                   key={tag}
                   href={`/genre/${tag.toLowerCase()}`}
@@ -237,6 +252,35 @@ export default async function GameDetailPage({
           </p>
         )}
       </section>
+
+      {developerStatement && (
+        <section
+          aria-label="Developer statement"
+          className="rounded-2xl border border-sky-500/30 bg-sky-950/20 p-5 sm:p-6 mb-6"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <MessageSquare className="h-4 w-4 text-sky-300" />
+            <h2 className="text-base font-semibold text-slate-100">
+              Developer statement
+            </h2>
+          </div>
+          <p className="text-sm text-slate-200 leading-relaxed">
+            {developerStatement.summary}{" "}
+            <span className="text-slate-400">
+              ({formatUtcDate(developerStatement.date)})
+            </span>
+          </p>
+          <a
+            href={developerStatement.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-sky-300 hover:underline"
+          >
+            Read &ldquo;{developerStatement.title}&rdquo; on Steam
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </section>
+      )}
 
       {/* 3. Key Metric Cards & Structured Entity Fact Sheet Table (Spec 8.1.3 + GEO Optimization) */}
       <section className="mb-8">
