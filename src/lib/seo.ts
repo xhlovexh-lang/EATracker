@@ -7,7 +7,7 @@ import {
 } from "./status-engine";
 
 export const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://eatracker.gg";
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://eatrackers.vercel.app";
 export const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || "EA Tracker";
 
 /**

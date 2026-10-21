@@ -8,7 +8,7 @@ export function SiteFooter() {
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4 mb-10">
           <div>
             <p className="text-sm font-bold text-slate-100 mb-2">
-              EA<span className="text-emerald-400">Tracker</span>.gg
+              EA<span className="text-emerald-400">Tracker</span>
             </p>
             <p className="leading-relaxed text-slate-400">
               Independent programmatic tracker monitoring patch frequency, community announcements,

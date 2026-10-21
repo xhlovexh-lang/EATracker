@@ -21,7 +21,10 @@ export default function ContactPage() {
         </Link>.
       </p>
       <p>
-        For press inquiries, dataset citations, or general questions: <code className="font-mono text-slate-200">contact@eatracker.gg</code>
+        For press inquiries, dataset citations, or general questions, use this site:{" "}
+        <a href={SITE_URL} className="font-mono text-slate-200 hover:text-emerald-400">
+          {SITE_URL}
+        </a>
       </p>
     </div>
   );
