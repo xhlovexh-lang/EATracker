@@ -249,5 +249,7 @@ describe("evaluateGameStatus — Deterministic Rule Set (Spec Section 8.3)", () 
   it("formats dates and durations accurately in UTC", () => {
     expect(formatUtcDate(new Date("2025-03-03T00:00:00Z"))).toBe("Mar 3, 2025");
     expect(formatDurationDays(910)).toBe("2 years 6 months");
+    // 1094 days was previously "2 years 12 months" — roll 12 months into the next year
+    expect(formatDurationDays(1094)).toBe("3 years");
   });
 });

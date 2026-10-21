@@ -889,9 +889,40 @@ export interface GlobalCatalogStats {
   }>;
 }
 
+/** Refresh verdict copy from the live status engine so wording stays consistent with dates. */
+function withFreshVerdict(game: GameRecord): GameRecord {
+  const evalResult = evaluateGameStatus({
+    isEarlyAccessNow: game.isEarlyAccess,
+    wasTrackedInEarlyAccess: true,
+    eaStartDate: game.eaStartDate,
+    leftEarlyAccessAt: game.leftEaAt,
+    lastPatchAt: game.lastPatchAt ? new Date(game.lastPatchAt) : null,
+    lastDevPostAt: game.lastDevPostAt ? new Date(game.lastDevPostAt) : null,
+    lastBuildAt: game.lastBuildAt ? new Date(game.lastBuildAt) : null,
+    posts12m: game.posts12m,
+    patches12m: game.patches12m,
+    post10Patches: game.post10Patches,
+    totalReviews: game.totalReviews,
+    totalPosts: Math.max(game.announcements.length, game.posts12m, 4),
+    adult: game.adult,
+    delisted: game.delisted,
+    externalUpdatesUrl: game.externalUpdatesUrl,
+    now: new Date("2026-10-19T12:00:00Z"),
+  });
+  return {
+    ...game,
+    lastActivityAt: evalResult.lastActivityAt?.toISOString() ?? game.lastActivityAt,
+    lastShipAt: evalResult.lastShipAt?.toISOString() ?? game.lastShipAt,
+    eaDurationDays: evalResult.eaDurationDays ?? game.eaDurationDays,
+    verdictSummary: evalResult.verdictSummary,
+  };
+}
+
 const ALL_GAMES: GameRecord[] = (() => {
   const byId = new Map<number, GameRecord>();
-  for (const game of importedGames as GameRecord[]) byId.set(game.appid, game);
+  for (const game of importedGames as GameRecord[]) {
+    byId.set(game.appid, withFreshVerdict(game));
+  }
   for (const game of SEED_GAMES) byId.set(game.appid, game);
   return [...byId.values()];
 })();
@@ -1043,4 +1074,74 @@ export function getGamesByGenreSlug(genreSlug: string): GameRecord[] {
       g.tags.some((t) => t.toLowerCase() === normalized) ||
       g.genres.some((gen) => gen.toLowerCase().includes(normalized))
   );
+}
+
+/** Resolve a game to one of the sitemap genre categories (name + slug stay paired). */
+export function resolvePrimaryGenre(
+  game: Pick<GameRecord, "genres" | "tags">
+): { slug: string; name: string } | null {
+  const tagSet = new Set(game.tags.map((t) => t.toLowerCase()));
+  const genreText = game.genres.map((g) => g.toLowerCase());
+
+  for (const cat of GENRE_CATEGORIES) {
+    if (tagSet.has(cat.slug)) return { slug: cat.slug, name: cat.name };
+  }
+  for (const cat of GENRE_CATEGORIES) {
+    if (genreText.some((g) => g.includes(cat.slug) || cat.name.toLowerCase().includes(g))) {
+      return { slug: cat.slug, name: cat.name };
+    }
+  }
+  return null;
+}
+
+export function isKnownGenreSlug(slug: string): boolean {
+  const normalized = slug.toLowerCase();
+  return GENRE_CATEGORIES.some((c) => c.slug === normalized);
+}
+
+export interface DeveloperStatement {
+  title: string;
+  date: string;
+  url: string;
+  summary: string;
+}
+
+/** Manual /report-confirmed developer statements keyed by Steam AppID. */
+const DEVELOPER_STATEMENT_OVERRIDES: Record<number, DeveloperStatement> = {
+  // The Long Drive — Steam post "Game Abandoned?" (2025-07-03) denies abandonment.
+  1017180: {
+    title: "Game Abandoned?",
+    date: "2025-07-03T18:36:41.000Z",
+    url: "https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1803527891744263",
+    summary:
+      "Developer says the game is not abandoned and continues work (including an engine rewrite).",
+  },
+};
+
+/**
+ * Returns a developer abandonment statement when one exists (override or announcement title).
+ */
+export function getDeveloperStatement(game: GameRecord): DeveloperStatement | null {
+  const override = DEVELOPER_STATEMENT_OVERRIDES[game.appid];
+  if (override) return override;
+
+  const match = game.announcements.find(
+    (a) => !a.isPatch && !a.isPatchHeuristic && /abandon/i.test(a.title)
+  );
+  if (!match) return null;
+
+  const combined = `${match.title} ${match.excerpt}`;
+  const denies =
+    /not\s+abandon|isn['’]t\s+abandon|abandon(?:ed)?\?\s*no\b|still\s+(?:in\s+)?(?:active\s+)?development/i.test(
+      combined
+    );
+
+  return {
+    title: match.title,
+    date: match.date,
+    url: match.url,
+    summary: denies
+      ? `Developer says ${game.name} is not abandoned.`
+      : `Developer published a statement about abandonment status: "${match.title}".`,
+  };
 }

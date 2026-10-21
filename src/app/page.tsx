@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -20,6 +21,19 @@ import { GameCard } from "../components/game-card";
 import { SITE_URL } from "../lib/seo";
 
 export const revalidate = 86400; // ISR 1 day per Spec Section 7
+
+const trackedCount = GLOBAL_CATALOG_STATS.totalTracked;
+
+export const metadata: Metadata = {
+  description: `We track ${trackedCount} popular Steam Early Access games' updates, patch notes, and developer announcements daily.`,
+  alternates: {
+    canonical: SITE_URL,
+  },
+  openGraph: {
+    url: SITE_URL,
+    description: `Daily automated audit of ${trackedCount} Steam Early Access games. Check last patch date, developer post frequency, and 1.0 graduation status before you buy.`,
+  },
+};
 
 export default function HomePage() {
   const games = getAllGames();
@@ -51,8 +65,7 @@ export default function HomePage() {
     "@type": "WebSite",
     name: "EA Tracker",
     url: SITE_URL,
-    description:
-      "We track every Steam Early Access game's updates, patch notes, and developer announcements daily.",
+    description: `We track ${trackedCount} popular Steam Early Access games' updates, patch notes, and developer announcements daily.`,
     potentialAction: {
       "@type": "SearchAction",
       target: `${SITE_URL}/abandoned-early-access-games?q={search_term_string}`,
@@ -82,8 +95,8 @@ export default function HomePage() {
             Is That Early Access Game Abandoned?
           </h1>
           <p className="mx-auto max-w-2xl text-base sm:text-lg text-slate-300 mb-8">
-            We track every Steam Early Access game&apos;s updates and developer posts, daily.
-            Get an instant, evidence-backed verdict before you buy.
+            We track {trackedCount} popular Steam Early Access games&apos; updates and
+            developer posts, daily. Get an instant, evidence-backed verdict before you buy.
           </p>
 
           <div className="mx-auto max-w-2xl text-left">

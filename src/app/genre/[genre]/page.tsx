@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { GENRE_CATEGORIES, getGamesByGenreSlug } from "../../../lib/catalog";
+import { notFound } from "next/navigation";
+import {
+  GENRE_CATEGORIES,
+  getGamesByGenreSlug,
+  isKnownGenreSlug,
+} from "../../../lib/catalog";
 import { buildItemListJsonLd, SITE_URL } from "../../../lib/seo";
 import { GameCard } from "../../../components/game-card";
 
 export const revalidate = 86400;
+export const dynamicParams = false;
 
 export async function generateStaticParams() {
   return GENRE_CATEGORIES.map((g) => ({ genre: g.slug }));
@@ -16,16 +22,21 @@ export async function generateMetadata({
   params: Promise<{ genre: string }>;
 }): Promise<Metadata> {
   const { genre } = await params;
-  const cat = GENRE_CATEGORIES.find((c) => c.slug === genre.toLowerCase());
-  const titleName = cat ? cat.name : genre.charAt(0).toUpperCase() + genre.slice(1);
+  const normalized = genre.toLowerCase();
+  const cat = GENRE_CATEGORIES.find((c) => c.slug === normalized);
+
+  if (!cat) {
+    return {
+      title: "Genre Not Found",
+      robots: { index: false, follow: false },
+    };
+  }
 
   return {
-    title: `${titleName} Early Access Games on Steam — Active vs. Abandoned`,
-    description:
-      cat?.description ??
-      `Track update frequency, patch history, and abandonment status for ${titleName} Early Access games on Steam.`,
+    title: `${cat.name} Early Access Games on Steam — Active vs. Abandoned`,
+    description: cat.description,
     alternates: {
-      canonical: `${SITE_URL}/genre/${genre.toLowerCase()}`,
+      canonical: `${SITE_URL}/genre/${cat.slug}`,
     },
   };
 }
@@ -36,14 +47,19 @@ export default async function GenreDirectoryPage({
   params: Promise<{ genre: string }>;
 }) {
   const { genre } = await params;
-  const cat = GENRE_CATEGORIES.find((c) => c.slug === genre.toLowerCase());
-  const titleName = cat ? cat.name : genre.charAt(0).toUpperCase() + genre.slice(1);
-  const games = getGamesByGenreSlug(genre);
+  const normalized = genre.toLowerCase();
+
+  if (!isKnownGenreSlug(normalized)) {
+    notFound();
+  }
+
+  const cat = GENRE_CATEGORIES.find((c) => c.slug === normalized)!;
+  const games = getGamesByGenreSlug(cat.slug);
 
   const schema = buildItemListJsonLd({
-    title: `${titleName} Steam Early Access Games`,
-    description: `Update status and abandonment audit for ${titleName} Early Access games.`,
-    url: `${SITE_URL}/genre/${genre.toLowerCase()}`,
+    title: `${cat.name} Steam Early Access Games`,
+    description: `Update status and abandonment audit for ${cat.name} Early Access games.`,
+    url: `${SITE_URL}/genre/${cat.slug}`,
     games,
   });
 
@@ -59,11 +75,10 @@ export default async function GenreDirectoryPage({
           Genre Audit Directory
         </p>
         <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-50 mb-3">
-          {titleName} Early Access Games on Steam
+          {cat.name} Early Access Games on Steam
         </h1>
         <p className="max-w-3xl text-sm sm:text-base text-slate-300">
-          {cat?.description ??
-            `Comparing active, slowing, stalled, and abandoned ${titleName} games in Steam Early Access.`}
+          {cat.description}
         </p>
       </div>
 
@@ -73,7 +88,7 @@ export default async function GenreDirectoryPage({
             key={c.slug}
             href={`/genre/${c.slug}`}
             className={`rounded-lg px-3 py-1.5 font-medium transition-colors ${
-              c.slug === genre.toLowerCase()
+              c.slug === cat.slug
                 ? "bg-emerald-500 text-slate-950"
                 : "bg-slate-900 border border-slate-800 text-slate-300 hover:border-slate-700"
             }`}
@@ -85,7 +100,7 @@ export default async function GenreDirectoryPage({
 
       {games.length === 0 ? (
         <p className="text-sm text-slate-400">
-          No tracked games matched genre tag &ldquo;{genre}&rdquo;.
+          No tracked games matched genre &ldquo;{cat.name}&rdquo;.
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

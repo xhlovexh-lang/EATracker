@@ -19,7 +19,7 @@ export default function AboutPage() {
         <em>&ldquo;When was this game last updated, and is the developer still actively working on it?&rdquo;</em>
       </p>
       <p>
-        EA Tracker is an independent programmatic database that monitors every Steam Early Access game&apos;s official community announcements, patch notes, and public depot build timestamps. Instead of subjective opinions, we provide a transparent, deterministic status badge and 36-month update cadence chart for every tracked title.
+        EA Tracker is an independent programmatic database that monitors Steam Early Access games&apos; official community announcements, patch notes, and public depot build timestamps. Instead of subjective opinions, we provide a transparent, deterministic status badge and 36-month update cadence chart for every tracked title.
       </p>
       <p className="text-xs text-slate-400">
         Data from public Steam APIs. Build data via steamcmd.net. Not affiliated with or endorsed by Valve Corporation.
