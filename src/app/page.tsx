@@ -86,7 +86,7 @@ export default function HomePage() {
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-medium text-emerald-300 mb-6">
             <CheckCircle2 className="h-3.5 w-3.5" />
             <span>
-              {GLOBAL_CATALOG_STATS.totalTracked.toLocaleString()} Early Access games tracked ·{" "}
+              {trackedCount} Early Access games tracked ·{" "}
               {GLOBAL_CATALOG_STATS.overOneYearNoUpdate.toLocaleString()} with no update in 12+ months
             </span>
           </div>
@@ -124,7 +124,7 @@ export default function HomePage() {
             <div className="rounded-xl border border-slate-800/90 bg-slate-900/60 p-4">
               <p className="text-xs text-slate-400">Total EA Tracked</p>
               <p className="mt-1 text-2xl font-bold font-mono text-slate-100">
-                {GLOBAL_CATALOG_STATS.totalTracked.toLocaleString()}
+                {trackedCount}
               </p>
               <p className="mt-0.5 text-[11px] text-slate-400">Genre ID 70 verified</p>
             </div>
