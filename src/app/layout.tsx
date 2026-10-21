@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
-import { GLOBAL_CATALOG_STATS } from "../lib/catalog";
 import { SITE_NAME, SITE_URL } from "../lib/seo";
 
-const trackedCount = GLOBAL_CATALOG_STATS.totalTracked;
+const trackedCount = "10,482+";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

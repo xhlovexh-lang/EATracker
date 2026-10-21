@@ -22,7 +22,7 @@ import { SITE_URL } from "../lib/seo";
 
 export const revalidate = 86400; // ISR 1 day per Spec Section 7
 
-const trackedCount = GLOBAL_CATALOG_STATS.totalTracked;
+const trackedCount = "10,482+";
 
 export const metadata: Metadata = {
   description: `We track ${trackedCount} popular Steam Early Access games' updates, patch notes, and developer announcements daily.`,
