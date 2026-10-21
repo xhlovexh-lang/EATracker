@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
-import { GENRE_CATEGORIES, GLOBAL_CATALOG_STATS } from "../../../lib/catalog";
+import {
+  GENRE_CATEGORIES,
+  GLOBAL_CATALOG_STATS,
+  getGamesByGenreSlug,
+} from "../../../lib/catalog";
+import { isGenrePageIndexable } from "../../../lib/genre-stats";
 import { SITE_URL } from "../../../lib/seo";
 
 export async function GET() {
   const lastmod = GLOBAL_CATALOG_STATS.lastGlobalSyncUtc.slice(0, 10);
+
+  const indexableGenrePaths = GENRE_CATEGORIES.filter((g) =>
+    isGenrePageIndexable(getGamesByGenreSlug(g.slug).length)
+  ).map((g) => `/genre/${g.slug}`);
 
   const staticPaths = [
     "/",
@@ -13,7 +22,7 @@ export async function GET() {
     "/left-early-access",
     "/stats",
     "/methodology",
-    ...GENRE_CATEGORIES.map((g) => `/genre/${g.slug}`),
+    ...indexableGenrePaths,
   ];
 
   const urlsXml = staticPaths
