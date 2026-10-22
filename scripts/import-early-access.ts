@@ -272,24 +272,8 @@ async function main() {
   }
 
   const imported = [];
-  const usedSlugs = new Set<string>([
-    "manor-lords",
-    "path-of-exile-2",
-    "icarus-first-cohort",
-    "valheim",
-    "project-zomboid",
-    "7-days-survival-sandbox",
-    "enshrouded",
-    "deep-rock-galactic-rogue-core",
-    "starsector-frontier-protocol",
-    "dead-matter-quarantine-zone",
-    "subterranean-tactics",
-    "echoes-of-new-fortune",
-    "scrap-mechanic-lost-colony",
-    "outpost-zero-colonization",
-    "void-salvage-protocol",
-    "chrono-forged-aether-realms",
-  ]);
+  // Reserve slugs already present in imported-games.json so refreshes stay stable.
+  const usedSlugs = new Set<string>(existing.map((g) => g.slug));
 
   for (const hit of hits) {
     if (!REFRESH_EXISTING && imported.length >= TARGET) break;

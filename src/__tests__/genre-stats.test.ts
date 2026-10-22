@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   GENRE_CATEGORIES,
+  getAllGames,
   getGamesByGenreSlug,
-  SEED_GAMES,
 } from "../lib/catalog";
 import {
   buildGenrePageStats,
@@ -96,7 +96,7 @@ describe("genre page stats & indexability", () => {
   });
 
   it("summary only restates provided numbers (no invented game names)", () => {
-    const games = SEED_GAMES.slice(0, 3);
+    const games = getAllGames().slice(0, 3);
     const statsBase = buildGenrePageStats(games, "Test Genre");
     const summary = buildGenreSummaryParagraph(statsBase);
     expect(summary).toContain("3");

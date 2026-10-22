@@ -50,7 +50,13 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const { game } = await findGameBySlug(slug);
+  const { game, redirectToSlug, redirectToPath } = await findGameBySlug(slug);
+  if (redirectToSlug && redirectToSlug !== slug) {
+    permanentRedirect(`/game/${redirectToSlug}`);
+  }
+  if (redirectToPath) {
+    permanentRedirect(redirectToPath);
+  }
   if (!game) {
     return {
       title: "Game Not Found",
@@ -85,10 +91,15 @@ export default async function GameDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const { game, redirectToSlug } = await findGameBySlug(slug);
+  const { game, redirectToSlug, redirectToPath } = await findGameBySlug(slug);
 
   if (redirectToSlug && redirectToSlug !== slug) {
     permanentRedirect(`/game/${redirectToSlug}`);
+  }
+
+  // Legacy real-game demo slug whose appid is not in the catalog yet → genre/home.
+  if (redirectToPath) {
+    permanentRedirect(redirectToPath);
   }
 
   if (!game) {
