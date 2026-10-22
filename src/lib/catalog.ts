@@ -1,4 +1,4 @@
-import type { GameStatusType } from "../config/status";
+import { STATUS_META, type GameStatusType } from "../config/status";
 import {
   MIN_GAMES_FOR_GENRE_INDEX,
   MIN_GAMES_FOR_GENRE_PAGE,
@@ -376,27 +376,66 @@ export function isKnownGenreSlug(slug: string): boolean {
   return GENRE_CATEGORIES.some((c) => c.slug === normalized);
 }
 
+export type DeveloperStatementStance = "not_abandoned" | "hiatus" | "ended";
+
 export interface DeveloperStatement {
   title: string;
   date: string;
   url: string;
-  summary: string;
+  /** Verbatim developer quote, ≤25 words. */
+  quote: string;
+  stance: DeveloperStatementStance;
+  /**
+   * @deprecated Prefer `quote`; kept for older call sites during migration.
+   */
+  summary?: string;
 }
 
 /** Manual /report-confirmed developer statements keyed by Steam AppID. */
 const DEVELOPER_STATEMENT_OVERRIDES: Record<number, DeveloperStatement> = {
-  // The Long Drive — Steam post "Game Abandoned?" (2025-07-03) denies abandonment.
+  // The Long Drive — Steam post "Game Abandoned?" (2025-07-03). Verbatim only.
   1017180: {
     title: "Game Abandoned?",
     date: "2025-07-03T18:36:41.000Z",
     url: "https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1803527891744263",
-    summary:
-      "Developer says the game is not abandoned and continues work (including an engine rewrite).",
+    quote: "Game Abandoned? No.",
+    stance: "not_abandoned",
   },
 };
 
+/** Optional intro copy overrides keyed by Steam AppID (KSP2 studio-closure context). */
+export const GAME_INTRO_OVERRIDES: Record<
+  number,
+  { paragraph: string; sources: Array<{ label: string; url: string }> }
+> = {
+  954850: {
+    paragraph:
+      "Kerbal Space Program 2 has had no Steam update since v0.2.2.0 on June 11, 2024. The closure of its studio, Intercept Games, was reported in May 2024 and confirmed by Take-Two in November 2024. It is still sold as Early Access. The status below is calculated daily from public Steam data.",
+    sources: [
+      {
+        label: "Steam news for KSP2",
+        url: "https://store.steampowered.com/news/app/954850",
+      },
+      {
+        label: "GamesRadar: Take-Two confirms studio closures",
+        url: "https://www.gamesradar.com/games/6-months-after-take-twos-ceo-said-we-didnt-shutter-those-studios-take-two-confirms-it-shuttered-the-kerbal-space-program-and-rollerdrome-studios/",
+      },
+    ],
+  },
+};
+
+function firstSentence(text: string): string {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  const match = cleaned.match(/^(.+?[.!?])(?:\s|$)/);
+  const sentence = (match?.[1] ?? cleaned).trim();
+  const words = sentence.split(/\s+/);
+  if (words.length <= 25) return sentence;
+  return `${words.slice(0, 25).join(" ")}…`;
+}
+
 /**
  * Returns a developer abandonment statement when one exists (override or announcement title).
+ * Auto-detected quotes use the verbatim title / first sentence — never a paraphrase.
  */
 export function getDeveloperStatement(game: GameRecord): DeveloperStatement | null {
   const override = DEVELOPER_STATEMENT_OVERRIDES[game.appid];
@@ -412,13 +451,53 @@ export function getDeveloperStatement(game: GameRecord): DeveloperStatement | nu
     /not\s+abandon|isn['’]t\s+abandon|abandon(?:ed)?\?\s*no\b|still\s+(?:in\s+)?(?:active\s+)?development/i.test(
       combined
     );
+  const quote = firstSentence(match.title) || firstSentence(match.excerpt);
 
   return {
     title: match.title,
     date: match.date,
     url: match.url,
-    summary: denies
-      ? `Developer says ${game.name} is not abandoned.`
-      : `Developer published a statement about abandonment status: "${match.title}".`,
+    quote,
+    stance: denies ? "not_abandoned" : /hiatus|pause|on\s+hold/i.test(combined) ? "hiatus" : "ended",
   };
+}
+
+/**
+ * When a not_abandoned statement is newer than lastShipAt, surface a fairer
+ * visible label than "Likely Abandoned" while keeping the activity score.
+ */
+export function getAdjustedStatusLabel(game: GameRecord): {
+  label: string;
+  shortLabel: string;
+  activityScoreNote: string | null;
+} {
+  const base = STATUS_META[game.status];
+  const statement = getDeveloperStatement(game);
+  if (
+    statement?.stance === "not_abandoned" &&
+    game.lastShipAt &&
+    new Date(statement.date).getTime() > new Date(game.lastShipAt).getTime()
+  ) {
+    const monthYear = new Date(statement.date).toLocaleDateString("en-US", {
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+    return {
+      label: `Stalled — developer says not abandoned (${monthYear})`,
+      shortLabel: `Stalled — not abandoned (${monthYear})`,
+      activityScoreNote:
+        "Activity score measures public Steam updates only, not private development.",
+    };
+  }
+  return {
+    label: base.label,
+    shortLabel: base.shortLabel,
+    activityScoreNote: null,
+  };
+}
+
+/** Single "last update" date = lastShipAt (patch or public build), never a bare dev post. */
+export function getLastUpdateAt(game: GameRecord): string | null {
+  return game.lastShipAt ?? game.lastPatchAt ?? game.lastBuildAt ?? null;
 }

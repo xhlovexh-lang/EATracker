@@ -3,9 +3,12 @@ import { STATUS_META, type GameStatusType } from "../config/status";
 export function StatusBadge({
   status,
   size = "md",
+  label,
 }: {
   status: GameStatusType;
   size?: "sm" | "md" | "lg";
+  /** Optional visible label override (e.g. fairer “not abandoned” wording). */
+  label?: string;
 }) {
   const meta = STATUS_META[status];
   const sizeClasses =
@@ -20,7 +23,7 @@ export function StatusBadge({
       className={`inline-flex items-center gap-1.5 rounded-full border ${meta.badgeBg} ${meta.badgeText} ${meta.badgeBorder} ${sizeClasses}`}
     >
       <span className={`h-2 w-2 rounded-full ${meta.dotColor}`} />
-      {meta.label}
+      {label ?? meta.label}
     </span>
   );
 }

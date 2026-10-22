@@ -103,9 +103,12 @@ export async function syncSingleApp(
       ? buildInfo.steamReleaseDate.toISOString().slice(0, 10)
       : null);
 
+  // When a tracked game loses genre 70, prefer Steam release_date, else detection date.
   const leftEaAt =
     existing?.isEarlyAccess && !store.isEarlyAccess
-      ? existing.leftEaAt ?? new Date().toISOString().slice(0, 10)
+      ? existing.leftEaAt ??
+        store.parsedReleaseDate ??
+        new Date().toISOString().slice(0, 10)
       : existing?.leftEaAt ?? null;
 
   const baseSlug = createUniqueGameSlug(store.name ?? `Game ${appid}`, appid);

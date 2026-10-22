@@ -49,6 +49,7 @@ export async function GET(
   }
 
   if (job === "seed-migrate") {
+    // Empty DB → insert all JSON rows; non-empty → insert missing appids only (never overwrite).
     const seeded = await seedFromImportedJson();
     return NextResponse.json({
       job,
@@ -58,7 +59,7 @@ export async function GET(
     });
   }
 
-  // Auto-seed once if empty so preview/production have data immediately.
+  // Auto-seed if empty; additive insert for JSON appids missing from Neon.
   const seeded = await seedFromImportedJson();
   const result = await runCrawlJob(job, CRON_BATCH_SIZE);
 

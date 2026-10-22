@@ -1,6 +1,9 @@
 import { STATUS_META } from "../config/status";
 import {
+  GAME_INTRO_OVERRIDES,
+  getAdjustedStatusLabel,
   getDeveloperStatement,
+  getLastUpdateAt,
   resolvePrimaryGenre,
   type GameRecord,
 } from "./catalog";
@@ -27,20 +30,18 @@ export function truncateTitleAtWord(title: string, max = 60): string {
 
 /**
  * Title & Meta Generator per Spec Section 9.2:
- * - Game Title: `Is {Game} Abandoned? Last Update {Mon YYYY} ({Status})` (<= 60 chars; drop parenthetical if >60)
- * - Game Meta: `{Game} has been in Early Access for {duration}. Last patch: {date}. Last developer post: {date}. Updated {n} times in the past year. Status: {Status}.`
- *
- * "Last Update" prefers a shipped patch/build date so a developer post is never presented as the latest patch.
+ * - Game Title: `Is {Game} Abandoned? Last Update {Mon YYYY} ({Status})` (<= 60 chars)
+ * - "Last Update" is always lastShipAt (patch/build), never a bare developer post.
  */
 export function buildGameSeoMeta(game: GameRecord) {
-  const lastUpdateMonthYear = formatUtcMonthYear(
-    game.lastShipAt ?? game.lastPatchAt ?? game.lastBuildAt ?? game.lastActivityAt
-  );
-  const statusShort = STATUS_META[game.status].shortLabel;
+  const lastUpdateAt = getLastUpdateAt(game);
+  const lastUpdateMonthYear = formatUtcMonthYear(lastUpdateAt);
+  const adjusted = getAdjustedStatusLabel(game);
+  const statusShort = adjusted.shortLabel;
 
   const fullTitle = `Is ${game.name} Abandoned? Last Update ${lastUpdateMonthYear} (${statusShort})`;
   const compactTitle = `Is ${game.name} Abandoned? Last Update ${lastUpdateMonthYear}`;
-  const minimalTitle = `Is ${game.name} Abandoned? (${statusShort})`;
+  const minimalTitle = `Is ${game.name} Abandoned? (${STATUS_META[game.status].shortLabel})`;
 
   let title = fullTitle;
   if (fullTitle.length > 60) {
@@ -51,10 +52,10 @@ export function buildGameSeoMeta(game: GameRecord) {
   }
 
   const durationStr = formatDurationDays(game.eaDurationDays);
-  const lastPatchStr = formatUtcDate(game.lastPatchAt);
+  const lastUpdateStr = formatUtcDate(lastUpdateAt);
   const lastPostStr = formatUtcDate(game.lastDevPostAt);
 
-  const description = `${game.name} has been in Early Access for ${durationStr}. Last patch: ${lastPatchStr}. Last developer post: ${lastPostStr}. Updated ${game.patches12m} times in the past year. Status: ${STATUS_META[game.status].label}.`;
+  const description = `${game.name} has been in Early Access for ${durationStr}. Last update: ${lastUpdateStr}. Last developer post: ${lastPostStr}. Updated ${game.patches12m} times in the past year. Status: ${adjusted.label}.`;
 
   return {
     title,
@@ -63,33 +64,42 @@ export function buildGameSeoMeta(game: GameRecord) {
   };
 }
 
+const KSP2_EXTRA_FAQS: Array<{ question: string; answer: string }> = [
+  {
+    question: "Is Kerbal Space Program 2 still being developed?",
+    answer:
+      "The last public Steam update was v0.2.2.0 on June 11, 2024, and its studio Intercept Games has been closed. We have found no newer update on Steam; this page re-checks Steam daily.",
+  },
+  {
+    question: "Should I buy KSP2 or KSP1?",
+    answer:
+      "We don't make buying recommendations. Kerbal Space Program 2 is still Early Access with no Steam update since June 2024; compare that with the update history on each game's Steam page.",
+  },
+];
+
 /**
- * Generates deterministic FAQ items for both UI display and FAQPage JSON-LD (Spec Section 8.1 & 9.3)
+ * Generates deterministic FAQ items for both UI display and FAQPage JSON-LD.
+ * FAQ answer 1 and the FAQPage JSON-LD must stay identical.
  */
 export function buildGameFaqItems(game: GameRecord): Array<{
   question: string;
   answer: string;
 }> {
-  const statusLabel = STATUS_META[game.status].label;
-  const lastPatchDate = formatUtcDate(game.lastPatchAt);
+  const lastUpdateAt = getLastUpdateAt(game);
+  const lastUpdateDate = formatUtcDate(lastUpdateAt);
   const lastPostDate = formatUtcDate(game.lastDevPostAt);
-  const lastBuildDate = formatUtcDate(game.lastBuildAt);
   const duration = formatDurationDays(game.eaDurationDays);
   const eaStart = formatUtcDate(game.eaStartDate);
   const developerStatement = getDeveloperStatement(game);
 
-  let isAbandonedAnswer =
-    game.status === "likely_abandoned"
-      ? `Based on public Steam records, ${game.name} is currently classified as Likely Abandoned (Activity Score: ${game.activityScore}/100). The last recorded developer activity on Steam was on ${formatUtcDate(game.lastActivityAt)}, with ${game.patches12m} patches and ${game.posts12m} developer announcements in the past 12 months.`
-      : game.status === "left_early_access"
-        ? `No. ${game.name} graduated from Steam Early Access to full 1.0 release on ${formatUtcDate(game.leftEaAt)} and has shipped ${game.post10Patches} update(s) since leaving Early Access.`
-        : `${game.name} is currently classified as ${statusLabel} with an Activity Score of ${game.activityScore}/100. In the past 12 months, the developer shipped ${game.patches12m} patch(es) and posted ${game.posts12m} community announcement(s) on Steam.`;
-
+  let isAbandonedAnswer = `Based on public Steam records, ${game.name}'s last default-branch update was ${lastUpdateDate}.`;
   if (developerStatement) {
-    isAbandonedAnswer += ` Developer statement (${formatUtcDate(developerStatement.date)}): ${developerStatement.summary}`;
+    isAbandonedAnswer += ` On ${formatUtcDate(developerStatement.date)} the developer said "${developerStatement.quote}" (source: Steam announcement).`;
   }
+  isAbandonedAnswer +=
+    " Our status only measures public Steam activity, not private development.";
 
-  const lastUpdatedAnswer = `The last official patch note for ${game.name} on Steam was published on ${lastPatchDate}, and the most recent developer announcement was posted on ${lastPostDate}.${game.lastBuildAt ? ` Public branch depot data indicates a build update on ${lastBuildDate}.` : ""}`;
+  const lastUpdatedAnswer = `The last update for ${game.name} on Steam (patch note or public build) was on ${lastUpdateDate}. The most recent developer announcement was posted on ${lastPostDate}.`;
 
   const durationAnswer = game.isEarlyAccess
     ? `${game.name} entered Steam Early Access on ${eaStart} and has been in Early Access for ${duration} (${game.eaDurationDays ?? 0} days).`
@@ -107,7 +117,7 @@ export function buildGameFaqItems(game: GameRecord): Array<{
         }. This is parsed public store copy, not a contractual commitment.`
       : `The developer (${game.developers.join(", ") || "Unknown"}) hasn't announced a confirmed 1.0 graduation date via structured Steam store metadata. Check the latest community announcements below for roadmap milestones.`;
 
-  return [
+  const faqs = [
     {
       question: `Is ${game.name} abandoned?`,
       answer: isAbandonedAnswer,
@@ -125,6 +135,12 @@ export function buildGameFaqItems(game: GameRecord): Array<{
       answer: leaveEaAnswer,
     },
   ];
+
+  if (game.appid === 954850) {
+    faqs.push(...KSP2_EXTRA_FAQS);
+  }
+
+  return faqs;
 }
 
 /**
@@ -155,7 +171,7 @@ export function buildGameJsonLd(game: GameRecord) {
     gamePlatform: ["PC", "Steam"],
     applicationCategory: "Game",
     datePublished: game.eaStartDate ?? undefined,
-    dateModified: game.lastActivityAt ?? game.statusChangedAt,
+    dateModified: getLastUpdateAt(game) ?? game.lastActivityAt ?? game.statusChangedAt,
     author: game.developers.map((dev) => ({
       "@type": "Organization",
       name: dev,
@@ -229,4 +245,8 @@ export function buildItemListJsonLd(params: {
       name: g.name,
     })),
   };
+}
+
+export function getGameIntroOverride(appid: number) {
+  return GAME_INTRO_OVERRIDES[appid] ?? null;
 }
