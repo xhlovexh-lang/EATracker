@@ -1,5 +1,5 @@
 import { notFound, permanentRedirect } from "next/navigation";
-import { getGameByAppId } from "../../../lib/catalog";
+import { loadCatalog } from "../../../lib/repository";
 
 /**
  * Spec Section 7 & 14: `/app/[appid]` -> 301 Permanent Redirect to `/game/[slug]`
@@ -15,7 +15,8 @@ export default async function AppIdRedirectPage({
     notFound();
   }
 
-  const game = getGameByAppId(numericId);
+  const catalog = await loadCatalog();
+  const game = catalog.games.find((g) => g.appid === numericId);
   if (!game) {
     notFound();
   }

@@ -15,6 +15,7 @@ import {
   getJsonFallbackGames,
   withFreshVerdict,
 } from "./catalog";
+import { getLegacySlugEntry } from "./legacy-slugs";
 
 function iso(value: Date | string | null | undefined): string | null {
   if (!value) return null;
@@ -252,9 +253,45 @@ export async function getGameCountFromDb(): Promise<{
   }
 }
 
-export async function findGameBySlug(
-  slug: string
-): Promise<{ game: GameRecord | null; redirectToSlug?: string; source: CatalogSource }> {
+export type FindGameBySlugResult = {
+  game: GameRecord | null;
+  redirectToSlug?: string;
+  /** Absolute-path redirect (genre hub or `/`) when a legacy real appid is not catalogued yet. */
+  redirectToPath?: string;
+  /** Invented demo slug — middleware returns HTTP 410; kept here for callers/tests. */
+  gone?: boolean;
+  source: CatalogSource;
+};
+
+async function findGameByAppIdInCatalog(
+  appid: number,
+  catalog: CatalogSnapshot
+): Promise<GameRecord | null> {
+  const fromCatalog = catalog.games.find((g) => g.appid === appid);
+  if (fromCatalog) return fromCatalog;
+
+  // Direct DB hit so a freshly crawled game redirects even if the 60s catalog cache is stale.
+  const db = getDb();
+  if (!db) return null;
+  try {
+    const row = await db.query.games.findFirst({
+      where: eq(games.appid, appid),
+    });
+    if (!row) return null;
+    const status = await db.query.gameStatus.findFirst({
+      where: eq(gameStatus.appid, appid),
+    });
+    return mapDbRowToGameRecord({
+      game: row,
+      status: status ?? null,
+      announcements: [],
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function findGameBySlug(slug: string): Promise<FindGameBySlugResult> {
   const catalog = await loadCatalog();
   const direct = catalog.games.find((g) => g.slug === slug);
   if (direct) return { game: direct, source: catalog.source };
@@ -274,14 +311,34 @@ export async function findGameBySlug(
         where: eq(slugHistory.oldSlug, slug),
       });
       if (hist) {
-        const byId = catalog.games.find((g) => g.appid === hist.appid);
+        const byId = await findGameByAppIdInCatalog(hist.appid, catalog);
         if (byId) {
           return { game: byId, redirectToSlug: byId.slug, source: catalog.source };
         }
       }
     } catch {
-      // ignore — fall through to not found
+      // ignore — fall through to legacy / not found
     }
+  }
+
+  // Former SEED_GAMES demo URLs: resolve real titles by appid, mark fakes as gone.
+  const legacy = getLegacySlugEntry(slug);
+  if (legacy?.kind === "gone") {
+    return { game: null, gone: true, source: catalog.source };
+  }
+  if (legacy?.kind === "real") {
+    const byId = await findGameByAppIdInCatalog(legacy.appid, catalog);
+    if (byId) {
+      if (byId.slug !== slug) {
+        return { game: byId, redirectToSlug: byId.slug, source: catalog.source };
+      }
+      return { game: byId, source: catalog.source };
+    }
+    return {
+      game: null,
+      redirectToPath: legacy.fallbackPath,
+      source: catalog.source,
+    };
   }
 
   return { game: null, source: catalog.source };

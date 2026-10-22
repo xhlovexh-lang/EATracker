@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureSchema } from "../../../../db/migrate";
 import { getGameCountFromDb } from "../../../../lib/repository";
-import { getJsonFallbackGames } from "../../../../lib/catalog";
+import { getImportedGamesJsonCount } from "../../../../lib/catalog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,9 +9,10 @@ export const dynamic = "force-dynamic";
 /**
  * Preview/production check that Neon is reachable.
  * Returns game row count only — never echoes connection strings or secrets.
+ * jsonFallbackCount is data/imported-games.json only (never demo seed rows).
  */
 export async function GET() {
-  const jsonFallbackCount = getJsonFallbackGames().length;
+  const jsonFallbackCount = getImportedGamesJsonCount();
 
   if (!process.env.DATABASE_URL) {
     return NextResponse.json(

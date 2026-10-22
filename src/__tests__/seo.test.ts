@@ -1,18 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { SEED_GAMES, getAllGames, getDeveloperStatement } from "../lib/catalog";
+import { getAllGames, getDeveloperStatement, GENRE_CATEGORIES } from "../lib/catalog";
 import {
   buildGameSeoMeta,
   buildGameJsonLd,
   truncateTitleAtWord,
 } from "../lib/seo";
-import { GENRE_CATEGORIES } from "../lib/catalog";
 
 describe("SEO & GEO Metadata and JSON-LD (Spec Section 9)", () => {
+  const sampleGames = getAllGames()
+    .filter((g) => g.indexable)
+    .sort((a, b) => b.totalReviews - a.totalReviews)
+    .slice(0, 12);
+
   it("generates title <= 60 chars and structured meta description", () => {
-    for (const game of SEED_GAMES) {
+    expect(sampleGames.length).toBeGreaterThan(0);
+    for (const game of sampleGames) {
       const meta = buildGameSeoMeta(game);
       expect(meta.title.length).toBeLessThanOrEqual(60);
-      expect(meta.title).toContain(game.name.slice(0, 15));
+      expect(meta.title).toContain(game.name.slice(0, Math.min(15, game.name.length)));
       expect(meta.description).toContain("Early Access for");
       expect(meta.description).toContain("Last patch:");
       expect(meta.description).toContain("Status:");
@@ -35,8 +40,8 @@ describe("SEO & GEO Metadata and JSON-LD (Spec Section 9)", () => {
   });
 
   it("outputs VideoGame, FAQPage, and BreadcrumbList JSON-LD without aggregateRating", () => {
-    const manor = SEED_GAMES[0]!;
-    const schemas = buildGameJsonLd(manor);
+    const game = sampleGames[0]!;
+    const schemas = buildGameJsonLd(game);
     expect(schemas).toHaveLength(3);
 
     const jsonString = JSON.stringify(schemas);
@@ -47,8 +52,11 @@ describe("SEO & GEO Metadata and JSON-LD (Spec Section 9)", () => {
   });
 
   it("pairs breadcrumb genre name and URL from the same sitemap genre", () => {
-    const manor = SEED_GAMES[0]!;
-    const schemas = buildGameJsonLd(manor);
+    const withGenre = sampleGames.find((g) =>
+      g.tags.some((t) => GENRE_CATEGORIES.some((c) => c.slug === t.toLowerCase()))
+    );
+    expect(withGenre).toBeTruthy();
+    const schemas = buildGameJsonLd(withGenre!);
     const breadcrumb = schemas[2] as {
       itemListElement: Array<{ position: number; name: string; item: string }>;
     };
