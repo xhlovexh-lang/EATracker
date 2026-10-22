@@ -4,7 +4,7 @@
  *
  * Real titles resolve by Steam appid against the live catalog (Neon or JSON),
  * so once the crawler inserts the game the redirect targets the real slug page.
- * Invented titles are permanently gone (HTTP 410 via middleware).
+ * Invented titles (wrong appid / no real equivalent) are HTTP 410 via proxy.
  */
 
 export type LegacyRealGameSlug = {
@@ -21,7 +21,7 @@ export type LegacyGoneSlug = {
 
 export type LegacySlugEntry = LegacyRealGameSlug | LegacyGoneSlug;
 
-/** Real Steam games that used demo slugs / invented subtitles in SEED_GAMES. */
+/** Demo slugs that map to a real Steam appid (301 → current `/game/{slug}`). */
 export const LEGACY_REAL_GAME_SLUGS: Record<string, LegacyRealGameSlug> = {
   "manor-lords": {
     kind: "real",
@@ -43,20 +43,42 @@ export const LEGACY_REAL_GAME_SLUGS: Record<string, LegacyRealGameSlug> = {
     appid: 1203620,
     fallbackPath: "/genre/survival",
   },
+  /** Fake demo slug → real 7 Days to Die page. */
+  "7-days-survival-sandbox": {
+    kind: "real",
+    appid: 251570,
+    fallbackPath: "/left-early-access",
+  },
+  /** Fake "Starsector…" title sat on KSP2's appid. */
+  "starsector-frontier-protocol": {
+    kind: "real",
+    appid: 954850,
+    fallbackPath: "/",
+  },
+  "deep-rock-galactic-rogue-core": {
+    kind: "real",
+    appid: 548430,
+    fallbackPath: "/left-early-access",
+  },
+  "subterranean-tactics": {
+    kind: "real",
+    appid: 1621690,
+    fallbackPath: "/left-early-access",
+  },
+  "scrap-mechanic-lost-colony": {
+    kind: "real",
+    appid: 387990,
+    fallbackPath: "/left-early-access",
+  },
 };
 
 /**
- * Clearly invented demo titles (names/slugs that never matched a real Steam page
- * under that URL). Served as HTTP 410 Gone.
+ * Invented demo titles whose seed appids pointed at unrelated Steam games
+ * (or no game). Served as HTTP 410 Gone.
  */
 export const LEGACY_GONE_SLUGS: ReadonlySet<string> = new Set([
-  "7-days-survival-sandbox",
-  "deep-rock-galactic-rogue-core",
-  "starsector-frontier-protocol",
   "dead-matter-quarantine-zone",
-  "subterranean-tactics",
   "echoes-of-new-fortune",
-  "scrap-mechanic-lost-colony",
   "outpost-zero-colonization",
   "void-salvage-protocol",
   "chrono-forged-aether-realms",

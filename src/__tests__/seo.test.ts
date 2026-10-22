@@ -19,7 +19,8 @@ describe("SEO & GEO Metadata and JSON-LD (Spec Section 9)", () => {
       expect(meta.title.length).toBeLessThanOrEqual(60);
       expect(meta.title).toContain(game.name.slice(0, Math.min(15, game.name.length)));
       expect(meta.description).toContain("Early Access for");
-      expect(meta.description).toContain("Last patch:");
+      expect(meta.description).toContain("Last update:");
+      expect(meta.description).toContain("Last developer post:");
       expect(meta.description).toContain("Status:");
     }
   });
@@ -71,6 +72,7 @@ describe("SEO & GEO Metadata and JSON-LD (Spec Section 9)", () => {
     expect(longDrive).toBeTruthy();
     const statement = getDeveloperStatement(longDrive!);
     expect(statement).toBeTruthy();
-    expect(statement!.summary.toLowerCase()).toContain("not abandoned");
+    expect(statement!.quote).toBe("Game Abandoned? No.");
+    expect(statement!.stance).toBe("not_abandoned");
   });
 });
