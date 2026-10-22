@@ -31,17 +31,26 @@ function eaDays(game: GameRecord): number | null {
   return Math.floor((end - start) / (24 * 3600 * 1000));
 }
 
+/** Brief #7: this page lists 2026 Early Access graduations only. */
+function leftEaIn2026(game: GameRecord): boolean {
+  return Boolean(game.leftEaAt?.startsWith("2026-"));
+}
+
+function listLeftEa2026(games: GameRecord[]): GameRecord[] {
+  return games
+    .filter((g) => (g.status === "left_early_access" || Boolean(g.leftEaAt)) && leftEaIn2026(g))
+    .sort((a, b) => (b.leftEaAt ?? "").localeCompare(a.leftEaAt ?? ""));
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const catalog = await loadCatalog();
-  const graduated = catalog.games
-    .filter((g) => g.status === "left_early_access" || Boolean(g.leftEaAt))
-    .sort((a, b) => (b.leftEaAt ?? "").localeCompare(a.leftEaAt ?? ""));
+  const graduated = listLeftEa2026(catalog.games);
   const indexable = graduated.length >= MIN_GAMES_FOR_LEFT_EA_INDEX;
 
   return {
     title: "Games That Left Steam Early Access in 2026 (Updated Daily)",
     description:
-      "Steam games that dropped the Early Access tag, with release date and whether developers kept updating after 1.0. Of the games we track.",
+      "Steam games that dropped the Early Access tag in 2026, with release date and whether developers kept updating after 1.0. Of the games we track.",
     alternates: {
       canonical: `${SITE_URL}/left-early-access`,
     },
@@ -53,19 +62,17 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function LeftEarlyAccessPage() {
   const catalog = await loadCatalog();
-  const graduated = catalog.games
-    .filter((g) => g.status === "left_early_access" || Boolean(g.leftEaAt))
-    .sort((a, b) => (b.leftEaAt ?? "").localeCompare(a.leftEaAt ?? ""));
+  const graduated = listLeftEa2026(catalog.games);
 
   const schema = buildItemListJsonLd({
     title: "Games That Left Steam Early Access in 2026 (Updated Daily)",
     description:
-      "Of the games EA Tracker follows, titles that left Steam Early Access, with 1.0 date and post-1.0 update counts.",
+      "Of the games EA Tracker follows, titles that left Steam Early Access in 2026, with 1.0 date and post-1.0 update counts.",
     url: `${SITE_URL}/left-early-access`,
     games: graduated,
   });
 
-  const shortAnswer = `Of the ${catalog.gameCount.toLocaleString()} games EA Tracker follows, these have left Steam Early Access. For each one we show the 1.0 date, how long it spent in Early Access, and how many updates it has shipped since 1.0, based on public Steam announcements.`;
+  const shortAnswer = `Of the ${catalog.gameCount.toLocaleString()} games EA Tracker follows, these left Steam Early Access in 2026. For each one we show the 1.0 date, how long it spent in Early Access, and how many updates it has shipped since 1.0, based on public Steam announcements.`;
 
   const faqs = [
     {
