@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import { Pool } from "pg";
 import { getDb } from "./index";
 import { games, gameStatus, newsItems } from "./schema";
 import type { GameRecord } from "../lib/catalog";
@@ -112,7 +112,7 @@ async function insertGameIfMissing(
 }
 
 /**
- * Additive seed: INSERT JSON rows whose appids are missing in Neon.
+ * Additive seed: INSERT JSON rows whose appids are missing in Postgres.
  * Never updates, deletes, or truncates existing rows.
  */
 export async function seedMissingFromImportedJson(options?: {
@@ -153,7 +153,7 @@ export async function seedMissingFromImportedJson(options?: {
 }
 
 /**
- * Seed Neon from data/imported-games.json when the games table is empty.
+ * Seed Postgres from data/imported-games.json when the games table is empty.
  * If rows already exist, runs the additive missing-appid path only (no overwrites).
  */
 export async function seedFromImportedJson(options?: {
@@ -165,10 +165,12 @@ export async function seedFromImportedJson(options?: {
     return { seeded: false, count: 0, error: "DATABASE_URL is not set" };
   }
 
-  const sql = neon(url);
+  const pool = new Pool({ connectionString: url });
   try {
-    const existing = await sql`SELECT count(*)::int AS count FROM games`;
-    const count = Number(existing[0]?.count ?? 0);
+    const existing = await pool.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM games`
+    );
+    const count = Number(existing.rows[0]?.count ?? 0);
 
     // Table already has data: only insert missing appids (never overwrite).
     if (count > 0 && !options?.force) {
@@ -200,6 +202,8 @@ export async function seedFromImportedJson(options?: {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[seed] failed:", message);
     return { seeded: false, count: 0, error: message };
+  } finally {
+    await pool.end();
   }
 }
 
