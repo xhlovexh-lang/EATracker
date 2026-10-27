@@ -1,7 +1,7 @@
-import { neon } from "@neondatabase/serverless";
+import { Pool } from "pg";
 
 /**
- * Idempotent schema setup for Neon (free tier). Safe to run on every cron
+ * Idempotent schema setup for Postgres. Safe to run on every cron
  * invocation — uses IF NOT EXISTS / ADD COLUMN IF NOT EXISTS only.
  */
 export async function ensureSchema(databaseUrl = process.env.DATABASE_URL): Promise<{
@@ -12,10 +12,10 @@ export async function ensureSchema(databaseUrl = process.env.DATABASE_URL): Prom
     return { ok: false, error: "DATABASE_URL is not set" };
   }
 
-  const sql = neon(databaseUrl);
+  const pool = new Pool({ connectionString: databaseUrl });
 
   try {
-    await sql`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS games (
         appid integer PRIMARY KEY,
         name text NOT NULL,
@@ -53,21 +53,29 @@ export async function ensureSchema(databaseUrl = process.env.DATABASE_URL): Prom
         news_checked_at timestamptz,
         build_checked_at timestamptz
       )
-    `;
+    `);
 
-    await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS tags text[] DEFAULT '{}'`;
-    await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS current_players integer`;
-    await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS current_players_checked_at timestamptz`;
-    await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS planned_ea_end_date date`;
-    await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS planned_ea_duration_text text`;
-    await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS planned_10_timing_text text`;
+    await pool.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS tags text[] DEFAULT '{}'`);
+    await pool.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS current_players integer`);
+    await pool.query(
+      `ALTER TABLE games ADD COLUMN IF NOT EXISTS current_players_checked_at timestamptz`
+    );
+    await pool.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS planned_ea_end_date date`);
+    await pool.query(
+      `ALTER TABLE games ADD COLUMN IF NOT EXISTS planned_ea_duration_text text`
+    );
+    await pool.query(
+      `ALTER TABLE games ADD COLUMN IF NOT EXISTS planned_10_timing_text text`
+    );
 
-    await sql`CREATE INDEX IF NOT EXISTS games_slug_idx ON games (slug)`;
-    await sql`CREATE INDEX IF NOT EXISTS games_is_ea_idx ON games (is_early_access)`;
-    await sql`CREATE INDEX IF NOT EXISTS games_planned_ea_end_idx ON games (planned_ea_end_date)`;
-    await sql`CREATE INDEX IF NOT EXISTS games_left_ea_idx ON games (left_ea_at)`;
+    await pool.query(`CREATE INDEX IF NOT EXISTS games_slug_idx ON games (slug)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS games_is_ea_idx ON games (is_early_access)`);
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS games_planned_ea_end_idx ON games (planned_ea_end_date)`
+    );
+    await pool.query(`CREATE INDEX IF NOT EXISTS games_left_ea_idx ON games (left_ea_at)`);
 
-    await sql`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS news_items (
         gid text PRIMARY KEY,
         appid integer NOT NULL REFERENCES games(appid) ON DELETE CASCADE,
@@ -81,20 +89,24 @@ export async function ensureSchema(databaseUrl = process.env.DATABASE_URL): Prom
         is_patch_heuristic boolean NOT NULL DEFAULT false,
         excerpt text
       )
-    `;
-    await sql`CREATE INDEX IF NOT EXISTS news_appid_date_idx ON news_items (appid, date)`;
+    `);
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS news_appid_date_idx ON news_items (appid, date)`
+    );
 
-    await sql`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS builds (
         appid integer NOT NULL REFERENCES games(appid) ON DELETE CASCADE,
         buildid text NOT NULL,
         time_updated timestamptz NOT NULL,
         PRIMARY KEY (appid, buildid)
       )
-    `;
-    await sql`CREATE INDEX IF NOT EXISTS builds_appid_time_idx ON builds (appid, time_updated)`;
+    `);
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS builds_appid_time_idx ON builds (appid, time_updated)`
+    );
 
-    await sql`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS game_status (
         appid integer PRIMARY KEY REFERENCES games(appid) ON DELETE CASCADE,
         status text NOT NULL,
@@ -114,27 +126,33 @@ export async function ensureSchema(databaseUrl = process.env.DATABASE_URL): Prom
         status_changed_at timestamptz DEFAULT now(),
         computed_at timestamptz DEFAULT now()
       )
-    `;
-    await sql`CREATE INDEX IF NOT EXISTS game_status_status_idx ON game_status (status)`;
-    await sql`CREATE INDEX IF NOT EXISTS game_status_score_idx ON game_status (activity_score)`;
-    await sql`CREATE INDEX IF NOT EXISTS game_status_indexable_idx ON game_status (indexable)`;
+    `);
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS game_status_status_idx ON game_status (status)`
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS game_status_score_idx ON game_status (activity_score)`
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS game_status_indexable_idx ON game_status (indexable)`
+    );
 
-    await sql`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS slug_history (
         old_slug text PRIMARY KEY,
         appid integer NOT NULL REFERENCES games(appid) ON DELETE CASCADE
       )
-    `;
+    `);
 
-    await sql`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS crawl_state (
         job text PRIMARY KEY,
         cursor text,
         updated_at timestamptz DEFAULT now()
       )
-    `;
+    `);
 
-    await sql`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS crawl_runs (
         id serial PRIMARY KEY,
         job text NOT NULL,
@@ -144,9 +162,9 @@ export async function ensureSchema(databaseUrl = process.env.DATABASE_URL): Prom
         failed integer NOT NULL DEFAULT 0,
         notes text
       )
-    `;
+    `);
 
-    await sql`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS reports (
         id serial PRIMARY KEY,
         appid integer NOT NULL,
@@ -157,12 +175,14 @@ export async function ensureSchema(databaseUrl = process.env.DATABASE_URL): Prom
         created_at timestamptz DEFAULT now(),
         status text NOT NULL DEFAULT 'pending'
       )
-    `;
+    `);
 
     return { ok: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[migrate] ensureSchema failed:", message);
     return { ok: false, error: message };
+  } finally {
+    await pool.end();
   }
 }

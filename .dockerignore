@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.github
+.vercel
+.env
+.env.*
+!.env.example
+*.log
+coverage
+.DS_Store
+*.tsbuildinfo
+README.md
+3-steam-early-access-abandoned.md
+.dockerignore
+Dockerfile

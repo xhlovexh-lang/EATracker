@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Preview/production check that Neon is reachable.
+ * Preview/production check that Postgres is reachable.
  * Returns game row count only — never echoes connection strings or secrets.
  * jsonFallbackCount is data/imported-games.json only (never demo seed rows).
  */
@@ -27,7 +27,7 @@ export async function GET() {
     );
   }
 
-  // Ensure tables exist (idempotent) so a fresh Neon branch reports a real count.
+  // Ensure tables exist (idempotent) so a fresh database reports a real count.
   const migrated = await ensureSchema();
   if (!migrated.ok) {
     return NextResponse.json(
