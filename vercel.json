@@ -1,3 +1,16 @@
 {
-  "crons": []
+  "crons": [],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "eatrackers.vercel.app"
+        }
+      ],
+      "destination": "https://eatracker.clear-frames.com/:path*",
+      "statusCode": 301
+    }
+  ]
 }
