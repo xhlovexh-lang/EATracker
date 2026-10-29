@@ -11,7 +11,7 @@ import { classifyNewsItem, isValidUnixTimestamp } from "../crawler/schemas";
 import { evaluateGameStatus } from "../src/lib/status-engine";
 import { slugifyGameName } from "../src/lib/slug";
 
-const UA = "EATrackerBot/1.0 (+https://eatrackers.vercel.app/methodology)";
+const UA = "EATrackerBot/1.0 (+https://eatracker.clear-frames.com/methodology)";
 const NOW = new Date("2026-10-22T03:00:00Z");
 const OUT = fileURLToPath(new URL("../data/imported-games.json", import.meta.url));
 

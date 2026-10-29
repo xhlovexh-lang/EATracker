@@ -357,7 +357,7 @@ reports (id serial, appid int, kind text, url text, message text, email text,
 
 1. `isitabandoned.com`
 2. `stillupdating.com`
-3. `https://eatrackers.vercel.app`（当前正式域名）
+3. `https://eatracker.clear-frames.com`（当前正式域名；旧 `eatrackers.vercel.app` 仅作遗留部署）
 
 （都不含 "steam"。"Early Access Watcher" 已经是一个鉴赏家列表的名字，避免用相近的名字。）
 

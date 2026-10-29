@@ -64,7 +64,7 @@ describe("SEO & GEO Metadata and JSON-LD (Spec Section 9)", () => {
     const genreItem = breadcrumb.itemListElement.find((i) => i.position === 2)!;
     const known = GENRE_CATEGORIES.find((c) => c.name === genreItem.name);
     expect(known).toBeTruthy();
-    expect(genreItem.item).toBe(`https://eatrackers.vercel.app/genre/${known!.slug}`);
+    expect(genreItem.item).toBe(`https://eatracker.clear-frames.com/genre/${known!.slug}`);
   });
 
   it("surfaces The Long Drive developer statement", () => {

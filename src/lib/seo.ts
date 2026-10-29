@@ -13,8 +13,13 @@ import {
   formatUtcMonthYear,
 } from "./status-engine";
 
-export const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://eatrackers.vercel.app";
+const DEFAULT_SITE_URL = "https://eatracker.clear-frames.com";
+
+export const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.SITE_URL ||
+  DEFAULT_SITE_URL
+).replace(/\/$/, "");
 export const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || "EA Tracker";
 
 /** Truncate SEO titles on a word boundary instead of mid-word. */

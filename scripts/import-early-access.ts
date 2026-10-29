@@ -4,7 +4,7 @@ import { classifyNewsItem, isValidUnixTimestamp } from "../crawler/schemas";
 import { evaluateGameStatus } from "../src/lib/status-engine";
 import { slugifyGameName } from "../src/lib/slug";
 
-const UA = "EATrackerBot/1.0 (+https://eatrackers.vercel.app/methodology)";
+const UA = "EATrackerBot/1.0 (+https://eatracker.clear-frames.com/methodology)";
 /** Gradual expansion target (~8k real EA games). Local JSON seed stays smaller. */
 const TARGET = Number.parseInt(process.env.IMPORT_TARGET ?? "240", 10);
 const NOW = new Date("2026-10-21T08:00:00Z");
