@@ -3,7 +3,7 @@ import { request } from "undici";
 
 const DEFAULT_UA =
   process.env.CRAWLER_USER_AGENT ||
-  "EATrackerBot/1.0 (+https://eatrackers.vercel.app/methodology)";
+  "EATrackerBot/1.0 (+https://eatracker.clear-frames.com/methodology)";
 
 export type HostBucket =
   | "store.steampowered.com"
