@@ -1,22 +1,25 @@
 import Script from "next/script";
 
-/** Production GA4 Measurement ID (public). Override via NEXT_PUBLIC_GA_MEASUREMENT_ID. */
-const DEFAULT_GA_MEASUREMENT_ID = "G-LKBLX98BC2";
+const GA_ID_PATTERN = /^G-[A-Z0-9]+$/i;
 
-const GA_MEASUREMENT_ID =
-  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || DEFAULT_GA_MEASUREMENT_ID;
+function resolveGaMeasurementId(): string | null {
+  const id = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim();
+  if (!id || !GA_ID_PATTERN.test(id)) return null;
+  return id;
+}
 
 /**
  * Loads GA4 via the standard gtag.js snippet (afterInteractive).
- * Measurement ID mirrors SITE_URL: env-driven with a documented production default.
+ * Injects only when NEXT_PUBLIC_GA_MEASUREMENT_ID is a valid G-… ID.
  */
 export function GoogleAnalytics() {
-  if (!GA_MEASUREMENT_ID) return null;
+  const measurementId = resolveGaMeasurementId();
+  if (!measurementId) return null;
 
   return (
     <>
       <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+        src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
         strategy="afterInteractive"
       />
       <Script id="ga4-gtag" strategy="afterInteractive">
@@ -24,7 +27,7 @@ export function GoogleAnalytics() {
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
-          gtag('config', '${GA_MEASUREMENT_ID}');
+          gtag('config', '${measurementId}', { anonymize_ip: true });
         `}
       </Script>
     </>
