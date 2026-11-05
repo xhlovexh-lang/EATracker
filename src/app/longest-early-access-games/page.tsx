@@ -24,10 +24,12 @@ import { GameCover } from "../../components/game-cover";
 export const revalidate = 86400;
 
 const PAGE_PATH = "/longest-early-access-games";
-const PAGE_TITLE = "Longest Steam Early Access Games (Updated Ranking)";
-const PAGE_DESCRIPTION =
-  "Steam Early Access games ranked by days since EA launch — still-in-EA leaders, active long-runners like Project Zomboid, plus status and activity score. Of the games we track.";
+/** Title A from Desk 2026-11-05 CTR brief — 50 chars; skip "| EA Tracker" (would exceed 60). */
+const PAGE_TITLE = "Longest Early Access Games on Steam (2026 Ranking)";
 const H1 = "Longest Steam Early Access Games — By Days in Early Access";
+const FAQ_LONGEST_Q = "What game has been in early access the longest?";
+const FAQ_NOT_EVERY_Q = "Why isn't every Steam Early Access game listed?";
+const TOP_5_PREVIEW_N = 5;
 
 function buildFaqJsonLd(faqs: Array<{ question: string; answer: string }>) {
   return {
@@ -44,16 +46,40 @@ function buildFaqJsonLd(faqs: Array<{ question: string; answer: string }>) {
   };
 }
 
+/** Compact years label for Top 5 / H1 subline (live days, not hardcoded). */
+function formatYearsInEa(days: number | null | undefined): string {
+  if (days === null || days === undefined || days < 0) return "Unknown";
+  const years = Math.floor(days / 365);
+  if (years < 1) return formatDurationDays(days);
+  return `${years}+ years`;
+}
+
+function buildPageDescription(longest: GameRecord | null): string {
+  if (!longest) {
+    return "See which Steam Early Access games have lasted the longest — Top 25 still-in-EA with status and activity score. Updated from our tracked catalog.";
+  }
+  const eaYear = longest.eaStartDate
+    ? new Date(longest.eaStartDate).getUTCFullYear()
+    : null;
+  const since = eaYear ? ` since ${eaYear}` : "";
+  // Meta A (preferred): #1 + Top 25 + not a dead-game framing
+  return `See which Steam Early Access games have lasted the longest — #1 ${longest.name}${since}, plus Top 25 still-in-EA with status and activity score. Updated from our tracked catalog.`;
+}
+
 export async function generateMetadata(): Promise<Metadata> {
+  const catalog = await loadCatalog();
+  const longest = listStillInEaByDuration(catalog.games)[0] ?? null;
+  const description = buildPageDescription(longest);
+
   return {
     title: { absolute: PAGE_TITLE },
-    description: PAGE_DESCRIPTION,
+    description,
     alternates: {
       canonical: `${SITE_URL}${PAGE_PATH}`,
     },
     openGraph: {
       title: PAGE_TITLE,
-      description: PAGE_DESCRIPTION,
+      description,
       url: `${SITE_URL}${PAGE_PATH}`,
       type: "website",
       siteName: SITE_NAME,
@@ -171,18 +197,34 @@ export default async function LongestEarlyAccessPage() {
   const stillInEa = listStillInEaByDuration(catalog.games);
   const leftAfterLongStay = listLeftAfterLongStay(catalog.games);
   const stillTop = stillInEa.slice(0, STILL_IN_EA_TOP_N);
+  const stillPreview = stillInEa.slice(0, TOP_5_PREVIEW_N);
   const stillRest = stillInEa.slice(STILL_IN_EA_TOP_N);
   const leftTop = leftAfterLongStay.slice(0, LEFT_AFTER_LONG_STAY_TOP_N);
 
   const monthYear = formatUtcMonthYear(catalog.stats.lastGlobalSyncUtc);
   const crawlDate = formatUtcDate(catalog.stats.lastGlobalSyncUtc);
   const trackedCount = catalog.gameCount;
+  const longest = stillInEa[0] ?? null;
   const famousLongRunner =
-    stillInEa.find((g) => /project zomboid/i.test(g.name)) ?? stillInEa[0] ?? null;
+    stillInEa.find((g) => /project zomboid/i.test(g.name)) ?? longest;
+  const pageDescription = buildPageDescription(longest);
 
-  const answerBox = `We measure Early Access duration from each game's Steam EA start date to today (still in EA) or to its leave/1.0 date (Left EA). Of the ${trackedCount.toLocaleString()} games we track, leaders below are sorted by days in Early Access. Last catalog sync: ${crawlDate}. A long Early Access stay is not the same as abandoned.`;
+  const longestStatus = longest ? getAdjustedStatusLabel(longest).shortLabel : null;
+  const answerBox = longest
+    ? `Among the ${trackedCount.toLocaleString()} Steam Early Access games we track, the longest still-in-EA title is ${longest.name} (EA start ${formatUtcDate(longest.eaStartDate)} · ${formatDurationDays(longest.eaDurationDays)} / ${longest.eaDurationDays?.toLocaleString()} days · status ${longestStatus} · score ${longest.activityScore}/100). Long EA ≠ abandoned.`
+    : `Among the ${trackedCount.toLocaleString()} Steam Early Access games we track, we rank still-in-EA titles by days since Steam EA launch. Long EA ≠ abandoned. Last catalog sync: ${crawlDate}.`;
+
+  const h1Subline = longest
+    ? `Longest still-in-EA right now: ${longest.name} — ${formatYearsInEa(longest.eaDurationDays)} (updated ${monthYear}).`
+    : null;
 
   const faqs: Array<{ question: string; answer: string }> = [
+    {
+      question: FAQ_LONGEST_Q,
+      answer: longest
+        ? `Among the ${trackedCount.toLocaleString()} Steam Early Access games we track, ${longest.name} has been in Early Access the longest at ${longest.eaDurationDays?.toLocaleString()} days (${formatDurationDays(longest.eaDurationDays)}), still tagged Early Access as of ${crawlDate}. Duration ranking rules are explained on our methodology page at ${SITE_URL}/methodology.`
+        : `We rank still-in-EA titles among the ${trackedCount.toLocaleString()} games in our tracked catalog by days since Steam Early Access start. See ${SITE_URL}/methodology for how duration and status are calculated.`,
+    },
     {
       question: "What counts as time in Early Access?",
       answer: `Time in Early Access is the number of days from the game's Steam Early Access start date to today if it is still tagged Early Access, or to the date it left Early Access (usually a 1.0 release) if it has graduated. Durations on this page come from the ${trackedCount.toLocaleString()} games in our tracked catalog.`,
@@ -201,7 +243,7 @@ export default async function LongestEarlyAccessPage() {
         : "Games appear here when their tracked Steam Early Access start date yields a long duration. Status and Activity Score are calculated separately from duration.",
     },
     {
-      question: "Why isn't every Steam Early Access game listed?",
+      question: FAQ_NOT_EVERY_Q,
       answer: `This ranking only includes titles in EA Tracker's tracked catalog (currently ${trackedCount.toLocaleString()} games), not every Early Access listing on Steam. If a game is missing, you can suggest it via our report form at ${SITE_URL}/report.`,
     },
     {
@@ -212,7 +254,7 @@ export default async function LongestEarlyAccessPage() {
 
   const itemListSchema = buildItemListJsonLd({
     title: H1,
-    description: PAGE_DESCRIPTION,
+    description: pageDescription,
     url: `${SITE_URL}${PAGE_PATH}`,
     games: stillTop,
   });
@@ -233,13 +275,69 @@ export default async function LongestEarlyAccessPage() {
         <p className="text-xs font-mono uppercase tracking-wider text-amber-400 mb-2">
           Duration Leaderboard · {monthYear} · Verified EA Entry Dates
         </p>
-        <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-50 mb-3">
+        <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-50 mb-2">
           {H1}
         </h1>
+        {h1Subline && (
+          <p className="mb-3 max-w-3xl text-sm sm:text-base font-medium text-amber-200/90">
+            {h1Subline}
+          </p>
+        )}
         <p className="max-w-3xl text-sm sm:text-base text-slate-300 leading-relaxed rounded-xl border border-amber-500/20 bg-amber-950/20 px-4 py-3">
-          {answerBox}
+          {longest ? (
+            <>
+              Among the {trackedCount.toLocaleString()} Steam Early Access games we
+              track, the longest still-in-EA title is{" "}
+              <Link
+                href={`/game/${longest.slug}`}
+                className="font-semibold text-slate-50 hover:text-emerald-300"
+              >
+                {longest.name}
+              </Link>{" "}
+              (EA start {formatUtcDate(longest.eaStartDate)} ·{" "}
+              {formatDurationDays(longest.eaDurationDays)} /{" "}
+              {longest.eaDurationDays?.toLocaleString()} days · status{" "}
+              {longestStatus} · score {longest.activityScore}/100). Long EA ≠
+              abandoned.
+            </>
+          ) : (
+            answerBox
+          )}
         </p>
       </div>
+
+      {stillPreview.length > 0 && (
+        <section className="mb-8" aria-label="Top 5 longest still in Early Access">
+          <h2 className="text-base sm:text-lg font-bold text-slate-50 mb-3">
+            Top 5 still in Early Access
+          </h2>
+          <ol className="mb-2 max-w-3xl space-y-2 text-sm text-slate-300">
+            {stillPreview.map((g, idx) => {
+              const status = getAdjustedStatusLabel(g).shortLabel;
+              return (
+                <li key={g.appid} className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="font-mono text-slate-500 w-5 shrink-0">
+                    {idx + 1}.
+                  </span>
+                  <Link
+                    href={`/game/${g.slug}`}
+                    className="font-semibold text-slate-100 hover:text-emerald-300"
+                  >
+                    {g.name}
+                  </Link>
+                  <span className="text-slate-500">·</span>
+                  <span className="text-amber-300/90">
+                    {formatYearsInEa(g.eaDurationDays)}
+                  </span>
+                  <span className="text-slate-500">·</span>
+                  <span className="text-slate-400">{status}</span>
+                </li>
+              );
+            })}
+          </ol>
+          <p className="text-xs text-slate-500">Full Top {STILL_IN_EA_TOP_N} below.</p>
+        </section>
+      )}
 
       <section className="mb-10">
         <h2 className="text-lg sm:text-xl font-bold text-slate-50 mb-2">
@@ -248,7 +346,9 @@ export default async function LongestEarlyAccessPage() {
         <p className="mb-4 max-w-3xl text-sm text-slate-400 leading-relaxed">
           Ranked by days since Steam Early Access launch among titles that are
           still tagged Early Access. Active long-runners can sit next to stalled
-          projects; check Score and Status, not duration alone.
+          projects; check Score and Status, not duration alone. We measure duration
+          from each game&apos;s Steam EA start date to today (still in EA) or to its
+          leave/1.0 date (Left EA). Last catalog sync: {crawlDate}.
         </p>
 
         <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60">
@@ -385,7 +485,27 @@ export default async function LongestEarlyAccessPage() {
             <div key={item.question}>
               <dt className="text-sm font-semibold text-slate-100">{item.question}</dt>
               <dd className="mt-1.5 text-sm text-slate-300 leading-relaxed">
-                {item.question === "Why isn't every Steam Early Access game listed?" ? (
+                {item.question === FAQ_LONGEST_Q && longest ? (
+                  <>
+                    Among the {trackedCount.toLocaleString()} Steam Early Access
+                    games we track,{" "}
+                    <Link
+                      href={`/game/${longest.slug}`}
+                      className="text-emerald-300 hover:underline"
+                    >
+                      {longest.name}
+                    </Link>{" "}
+                    has been in Early Access the longest at{" "}
+                    {longest.eaDurationDays?.toLocaleString()} days (
+                    {formatDurationDays(longest.eaDurationDays)}), still tagged Early
+                    Access as of {crawlDate}. Duration ranking rules are explained on
+                    our{" "}
+                    <Link href="/methodology" className="text-emerald-300 hover:underline">
+                      methodology
+                    </Link>{" "}
+                    page.
+                  </>
+                ) : item.question === FAQ_NOT_EVERY_Q ? (
                   <>
                     This ranking only includes titles in EA Tracker&apos;s tracked
                     catalog (currently {trackedCount.toLocaleString()} games), not
@@ -431,6 +551,22 @@ export default async function LongestEarlyAccessPage() {
           <li>
             <Link href="/stats" className="text-emerald-300 hover:underline">
               Stats
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/guides/how-to-tell-if-early-access-game-is-abandoned"
+              className="text-emerald-300 hover:underline"
+            >
+              How to tell if an EA game is abandoned
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/guides/steam-early-access-not-updated-warning"
+              className="text-emerald-300 hover:underline"
+            >
+              Steam EA not-updated warning
             </Link>
           </li>
           <li>
