@@ -23,6 +23,8 @@ export async function GET() {
     "/coming-to-1-0-soon",
     "/stats",
     "/methodology",
+    "/guides/steam-early-access-not-updated-warning",
+    "/guides/how-to-tell-if-early-access-game-is-abandoned",
     ...indexableGenrePaths,
   ];
 

@@ -180,12 +180,20 @@ export default async function HomePage() {
                 Programmatic rankings updated daily from official Steam announcements and depot build logs
               </p>
             </div>
-            <Link
-              href="/methodology"
-              className="text-xs font-medium text-emerald-400 hover:underline"
-            >
-              How status is calculated →
-            </Link>
+            <div className="flex flex-col items-end gap-1 text-xs font-medium">
+              <Link
+                href="/methodology"
+                className="text-emerald-400 hover:underline"
+              >
+                How status is calculated →
+              </Link>
+              <Link
+                href="/guides/steam-early-access-not-updated-warning"
+                className="text-slate-400 hover:text-emerald-400 hover:underline"
+              >
+                Steam&apos;s 12-month note →
+              </Link>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
