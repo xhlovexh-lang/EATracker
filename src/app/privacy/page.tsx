@@ -20,7 +20,10 @@ export default function PrivacyPage() {
         1. Information We Collect
       </h2>
       <p>
-        We only collect information voluntarily submitted through our Developer Correction Form (<code className="font-mono">/report</code>), where an email address is optional and used solely to notify you when a data correction request has been reviewed.
+        We collect information voluntarily submitted through our Developer Correction Form (<code className="font-mono">/report</code>), where an email address is optional and used solely to notify you when a data correction request has been reviewed.
+      </p>
+      <p>
+        We also use Google Analytics 4 (GA4) to measure anonymous page views and basic usage on this site (Measurement ID class <code className="font-mono">G-…</code>). GA4 may set cookies or use similar identifiers according to Google&apos;s policies; we do not use it to identify Steam accounts or sell personal data.
       </p>
       <h2 className="text-base font-bold text-slate-100">
         2. Public Game Data
