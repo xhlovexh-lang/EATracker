@@ -85,6 +85,22 @@ export function SiteFooter() {
                 </Link>
               </li>
               <li>
+                <Link
+                  href="/guides/steam-early-access-not-updated-warning"
+                  className="hover:text-slate-200"
+                >
+                  Steam&apos;s 12-Month Not-Updated Note
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/guides/how-to-tell-if-early-access-game-is-abandoned"
+                  className="hover:text-slate-200"
+                >
+                  How to Tell If EA Is Abandoned
+                </Link>
+              </li>
+              <li>
                 <Link href="/report" className="hover:text-emerald-400 font-medium">
                   Developer? Report Incorrect Data
                 </Link>
