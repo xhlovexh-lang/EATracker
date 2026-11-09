@@ -401,6 +401,24 @@ const DEVELOPER_STATEMENT_OVERRIDES: Record<number, DeveloperStatement> = {
     quote: "Game Abandoned? No.",
     stance: "not_abandoned",
   },
+  // Tiny Rogues — Steam post "Sign Of Life" (2025-08-07). Verbatim only.
+  2088570: {
+    title: "Sign Of Life",
+    date: "2025-08-07T16:02:07.000Z",
+    url: "https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1807332909574848",
+    quote:
+      "Just to reassure everyone—the next big update is still in development, thanks for your patience!",
+    stance: "not_abandoned",
+  },
+  // Blood Trail — Steam post "What's the Latest With Blood Trail?" (2023-05-14). Verbatim only.
+  1032430: {
+    title: "What's the Latest With Blood Trail?",
+    date: "2023-05-14T19:56:55.000Z",
+    url: "https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/6557848386953184277",
+    quote:
+      "Blood Trail has been abandoned. WRONG! Blood Trail is more alive than ever.",
+    stance: "not_abandoned",
+  },
 };
 
 /** Optional intro copy overrides keyed by Steam AppID (KSP2 studio-closure context). */
@@ -465,10 +483,14 @@ export function getDeveloperStatement(game: GameRecord): DeveloperStatement | nu
 /**
  * When a not_abandoned statement is newer than lastShipAt, surface a fairer
  * visible label than "Likely Abandoned" while keeping the activity score.
+ *
+ * `titleShortLabel` is a compact SERP token (badge family) that fits the
+ * ≤60-char title budget; `shortLabel` keeps the fuller fairness wording.
  */
 export function getAdjustedStatusLabel(game: GameRecord): {
   label: string;
   shortLabel: string;
+  titleShortLabel: string;
   activityScoreNote: string | null;
 } {
   const base = STATUS_META[game.status];
@@ -486,6 +508,8 @@ export function getAdjustedStatusLabel(game: GameRecord): {
     return {
       label: `Stalled — developer says not abandoned (${monthYear})`,
       shortLabel: `Stalled — not abandoned (${monthYear})`,
+      // Keep the stalled badge family in SERP titles (not "Likely Abandoned").
+      titleShortLabel: "Stalled",
       activityScoreNote:
         "Activity score measures public Steam updates only, not private development.",
     };
@@ -493,6 +517,7 @@ export function getAdjustedStatusLabel(game: GameRecord): {
   return {
     label: base.label,
     shortLabel: base.shortLabel,
+    titleShortLabel: base.shortLabel,
     activityScoreNote: null,
   };
 }

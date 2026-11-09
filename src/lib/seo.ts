@@ -1,4 +1,3 @@
-import { STATUS_META } from "../config/status";
 import {
   GAME_INTRO_OVERRIDES,
   getAdjustedStatusLabel,
@@ -42,18 +41,24 @@ export function buildGameSeoMeta(game: GameRecord) {
   const lastUpdateAt = getLastUpdateAt(game);
   const lastUpdateMonthYear = formatUtcMonthYear(lastUpdateAt);
   const adjusted = getAdjustedStatusLabel(game);
-  const statusShort = adjusted.shortLabel;
+  // Prefer the compact title token so fairness-adjusted pages keep ({Status})
+  // in SERP titles instead of dropping status when the long shortLabel overflows.
+  const statusShort = adjusted.titleShortLabel;
 
   const fullTitle = `Is ${game.name} Abandoned? Last Update ${lastUpdateMonthYear} (${statusShort})`;
+  const statusOnlyTitle = `Is ${game.name} Abandoned? (${statusShort})`;
   const compactTitle = `Is ${game.name} Abandoned? Last Update ${lastUpdateMonthYear}`;
-  const minimalTitle = `Is ${game.name} Abandoned? (${STATUS_META[game.status].shortLabel})`;
 
   let title = fullTitle;
   if (fullTitle.length > 60) {
-    title =
-      compactTitle.length <= 60
-        ? compactTitle
-        : truncateTitleAtWord(minimalTitle, 60);
+    // Prefer keeping adjusted ({Status}) over date-only truncation.
+    if (statusOnlyTitle.length <= 60) {
+      title = statusOnlyTitle;
+    } else if (compactTitle.length <= 60) {
+      title = compactTitle;
+    } else {
+      title = truncateTitleAtWord(statusOnlyTitle, 60);
+    }
   }
 
   const durationStr = formatDurationDays(game.eaDurationDays);
