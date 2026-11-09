@@ -20,12 +20,32 @@ describe("developer statement fairness + last update", () => {
 
     const adjusted = getAdjustedStatusLabel(longDrive!);
     expect(adjusted.label).toMatch(/Stalled — developer says not abandoned/i);
+    expect(adjusted.titleShortLabel).toBe("Stalled");
     expect(adjusted.activityScoreNote).toMatch(/public Steam updates only/i);
+
+    const meta = buildGameSeoMeta(longDrive!);
+    expect(meta.title).toMatch(/\(Stalled\)/);
+    expect(meta.title.length).toBeLessThanOrEqual(60);
 
     const faq = buildGameFaqItems(longDrive!)[0]!;
     expect(faq.answer).toContain('the developer said "Game Abandoned? No."');
     expect(faq.answer).toContain("Our status only measures public Steam activity");
     expect(faq.answer).not.toMatch(/engine rewrite/i);
+  });
+
+  it("surfaces verified Tiny Rogues and Blood Trail Steam statements", () => {
+    const tinyRogues = getAllGames().find((g) => g.appid === 2088570);
+    const bloodTrail = getAllGames().find((g) => g.appid === 1032430);
+    expect(tinyRogues).toBeTruthy();
+    expect(bloodTrail).toBeTruthy();
+
+    const tinyStmt = getDeveloperStatement(tinyRogues!);
+    expect(tinyStmt?.stance).toBe("not_abandoned");
+    expect(tinyStmt?.quote).toContain("still in development");
+
+    const bloodStmt = getDeveloperStatement(bloodTrail!);
+    expect(bloodStmt?.stance).toBe("not_abandoned");
+    expect(bloodStmt?.quote).toContain("more alive than ever");
   });
 
   it("uses a single lastShipAt last-update date for Lethal Company everywhere", () => {

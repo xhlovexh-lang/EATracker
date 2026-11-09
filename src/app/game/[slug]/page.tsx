@@ -569,7 +569,10 @@ export default async function GameDetailPage({
             ? ` The developer said "${developerStatement.quote}" on ${formatUtcDate(developerStatement.date)}.`
             : ""}{" "}
           To judge for yourself, see{" "}
-          <Link href="/methodology" className="text-emerald-400 hover:underline">
+          <Link
+            href="/guides/how-to-tell-if-early-access-game-is-abandoned"
+            className="text-emerald-400 hover:underline"
+          >
             How to tell if an Early Access game is abandoned
           </Link>
           .
