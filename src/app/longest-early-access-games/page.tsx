@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   getAdjustedStatusLabel,
-  getDeveloperStatement,
   type GameRecord,
 } from "../../lib/catalog";
 import {
@@ -10,6 +9,8 @@ import {
   listLeftAfterLongStay,
   listStillInEaByDuration,
   STILL_IN_EA_TOP_N,
+  toStillInEaListItem,
+  type StillInEaListItem,
 } from "../../lib/longest-early-access";
 import { loadCatalog } from "../../lib/repository";
 import { buildItemListJsonLd, SITE_NAME, SITE_URL } from "../../lib/seo";
@@ -19,7 +20,8 @@ import {
   formatUtcMonthYear,
 } from "../../lib/status-engine";
 import { StatusBadge } from "../../components/status-badge";
-import { GameCover } from "../../components/game-cover";
+import { RankingCover } from "../../components/ranking-cover";
+import { StillInEaShowAll } from "../../components/still-in-ea-show-all";
 
 export const revalidate = 86400;
 
@@ -87,11 +89,15 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-function StillInEaRow({ game, rank }: { game: GameRecord; rank: number }) {
-  const adjusted = getAdjustedStatusLabel(game);
-  const statement =
-    game.status === "likely_abandoned" ? getDeveloperStatement(game) : null;
-
+function StillInEaRow({
+  game,
+  rank,
+  priorityCover = false,
+}: {
+  game: StillInEaListItem;
+  rank: number;
+  priorityCover?: boolean;
+}) {
   return (
     <tr className="hover:bg-slate-800/40 transition-colors align-top">
       <td className="py-3.5 px-4 font-mono text-slate-400">{rank}</td>
@@ -100,11 +106,9 @@ function StillInEaRow({ game, rank }: { game: GameRecord; rank: number }) {
           href={`/game/${game.slug}`}
           className="flex items-center gap-3 hover:text-emerald-400"
         >
-          <GameCover
+          <RankingCover
             src={game.headerImage}
-            alt=""
-            width={92}
-            height={43}
+            priority={priorityCover}
             className="hidden h-10 w-[86px] shrink-0 rounded-md object-cover sm:block"
           />
           <span>
@@ -114,12 +118,12 @@ function StillInEaRow({ game, rank }: { game: GameRecord; rank: number }) {
             </span>
           </span>
         </Link>
-        {statement && (
+        {game.statement && (
           <p className="mt-2 max-w-md text-[11px] font-normal leading-relaxed text-sky-200/90">
-            Dev says &ldquo;{statement.quote}&rdquo; (
-            {formatUtcDate(statement.date)},{" "}
+            Dev says &ldquo;{game.statement.quote}&rdquo; (
+            {formatUtcDate(game.statement.date)},{" "}
             <a
-              href={statement.url}
+              href={game.statement.url}
               target="_blank"
               rel="noopener noreferrer"
               className="underline hover:text-sky-100"
@@ -143,7 +147,11 @@ function StillInEaRow({ game, rank }: { game: GameRecord; rank: number }) {
         {formatUtcDate(game.lastPatchAt)}
       </td>
       <td className="py-3.5 px-4">
-        <StatusBadge status={game.status} size="sm" label={adjusted.shortLabel} />
+        <StatusBadge
+          status={game.status}
+          size="sm"
+          label={game.statusShortLabel}
+        />
       </td>
       <td className="py-3.5 px-4 text-right font-mono font-semibold text-slate-200">
         {game.activityScore}/100
@@ -161,11 +169,8 @@ function LeftEaRow({ game, rank }: { game: GameRecord; rank: number }) {
           href={`/game/${game.slug}`}
           className="flex items-center gap-3 hover:text-emerald-400"
         >
-          <GameCover
+          <RankingCover
             src={game.headerImage}
-            alt=""
-            width={92}
-            height={43}
             className="hidden h-10 w-[86px] shrink-0 rounded-md object-cover sm:block"
           />
           <span>
@@ -196,9 +201,10 @@ export default async function LongestEarlyAccessPage() {
   const catalog = await loadCatalog();
   const stillInEa = listStillInEaByDuration(catalog.games);
   const leftAfterLongStay = listLeftAfterLongStay(catalog.games);
-  const stillTop = stillInEa.slice(0, STILL_IN_EA_TOP_N);
+  const stillTopGames = stillInEa.slice(0, STILL_IN_EA_TOP_N);
+  const stillTop = stillTopGames.map(toStillInEaListItem);
   const stillPreview = stillInEa.slice(0, TOP_5_PREVIEW_N);
-  const stillRest = stillInEa.slice(STILL_IN_EA_TOP_N);
+  const stillRestCount = Math.max(0, stillInEa.length - STILL_IN_EA_TOP_N);
   const leftTop = leftAfterLongStay.slice(0, LEFT_AFTER_LONG_STAY_TOP_N);
 
   const monthYear = formatUtcMonthYear(catalog.stats.lastGlobalSyncUtc);
@@ -256,7 +262,7 @@ export default async function LongestEarlyAccessPage() {
     title: H1,
     description: pageDescription,
     url: `${SITE_URL}${PAGE_PATH}`,
-    games: stillTop,
+    games: stillTopGames,
   });
   const faqSchema = buildFaqJsonLd(faqs);
 
@@ -366,7 +372,12 @@ export default async function LongestEarlyAccessPage() {
             </thead>
             <tbody className="divide-y divide-slate-800/80">
               {stillTop.map((g, idx) => (
-                <StillInEaRow key={g.appid} game={g} rank={idx + 1} />
+                <StillInEaRow
+                  key={g.appid}
+                  game={g}
+                  rank={idx + 1}
+                  priorityCover={idx < 5}
+                />
               ))}
               {stillTop.length === 0 && (
                 <tr>
@@ -379,37 +390,11 @@ export default async function LongestEarlyAccessPage() {
           </table>
         </div>
 
-        {stillRest.length > 0 && (
-          <details className="mt-4 rounded-xl border border-slate-800 bg-slate-950/40">
-            <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-slate-200 hover:text-emerald-300">
-              Show all tracked still-in-EA ({stillInEa.length.toLocaleString()}{" "}
-              games)
-            </summary>
-            <div className="overflow-x-auto border-t border-slate-800">
-              <table className="w-full text-left text-xs sm:text-sm">
-                <thead className="border-b border-slate-800 bg-slate-950/60 text-xs uppercase text-slate-400">
-                  <tr>
-                    <th className="py-3.5 px-4">#</th>
-                    <th className="py-3.5 px-4">Game</th>
-                    <th className="py-3.5 px-4">EA Start</th>
-                    <th className="py-3.5 px-4">Time in EA</th>
-                    <th className="py-3.5 px-4">Last Patch</th>
-                    <th className="py-3.5 px-4">Status</th>
-                    <th className="py-3.5 px-4 text-right">Score</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/80">
-                  {stillRest.map((g, idx) => (
-                    <StillInEaRow
-                      key={g.appid}
-                      game={g}
-                      rank={STILL_IN_EA_TOP_N + idx + 1}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </details>
+        {stillRestCount > 0 && (
+          <StillInEaShowAll
+            totalCount={stillInEa.length}
+            offset={STILL_IN_EA_TOP_N}
+          />
         )}
       </section>
 

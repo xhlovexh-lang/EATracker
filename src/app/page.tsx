@@ -13,7 +13,6 @@ import {
   catalogShare,
 } from "../lib/catalog";
 import { loadCatalog } from "../lib/repository";
-import { formatUtcDate } from "../lib/status-engine";
 import { GameSearchAutocomplete } from "../components/game-search";
 import { GameCard } from "../components/game-card";
 import { SITE_URL } from "../lib/seo";
@@ -38,15 +37,6 @@ export default async function HomePage() {
   const games = catalog.games;
   const GLOBAL_CATALOG_STATS = catalog.stats;
   const GENRE_CATEGORIES = catalog.genres;
-  const searchItems = games.map((g) => ({
-    appid: g.appid,
-    name: g.name,
-    slug: g.slug,
-    status: g.status,
-    activityScore: g.activityScore,
-    lastUpdateLabel: formatUtcDate(g.lastActivityAt),
-    headerImage: g.headerImage,
-  }));
 
   const activeHighlights = games
     .filter((g) => g.status === "active")
@@ -101,7 +91,7 @@ export default async function HomePage() {
           </p>
 
           <div className="mx-auto max-w-2xl text-left">
-            <GameSearchAutocomplete items={searchItems} />
+            <GameSearchAutocomplete />
             <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-400">
               <span>Popular checks:</span>
               {games.slice(0, 5).map((g) => (

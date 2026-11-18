@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { loadCatalog } from "../../../lib/repository";
 import { SITE_NAME, SITE_URL } from "../../../lib/seo";
-import { formatUtcDate } from "../../../lib/status-engine";
 import { GameSearchAutocomplete } from "../../../components/game-search";
 
 export const revalidate = 86400;
@@ -128,17 +126,6 @@ const CHECKS: Array<{
 ];
 
 export default async function HowToTellAbandonedGuidePage() {
-  const catalog = await loadCatalog();
-  const searchItems = catalog.games.map((g) => ({
-    appid: g.appid,
-    name: g.name,
-    slug: g.slug,
-    status: g.status,
-    activityScore: g.activityScore,
-    lastUpdateLabel: formatUtcDate(g.lastActivityAt),
-    headerImage: g.headerImage,
-  }));
-
   const shortAnswer =
     "Before you buy, check the last default-branch update, the last update-type Steam post, beta/public test activity, developer replies, and whether roadmap dates keep slipping. One red flag alone is not proof of abandonment — stack several signals, then compare with a neutral tracker status.";
 
@@ -446,10 +433,7 @@ export default async function HowToTellAbandonedGuidePage() {
           </Link>
           .
         </p>
-        <GameSearchAutocomplete
-          items={searchItems}
-          placeholder="Search a Steam Early Access game..."
-        />
+        <GameSearchAutocomplete placeholder="Search a Steam Early Access game..." />
       </section>
 
       <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">

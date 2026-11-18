@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export function GameCover({
   src,
@@ -8,32 +8,17 @@ export function GameCover({
   className = "",
   width,
   height,
+  priority = false,
 }: {
   src: string;
   alt: string;
   className?: string;
   width?: number;
   height?: number;
+  /** When true, skip lazy-loading (above-the-fold / search dropdown). */
+  priority?: boolean;
 }) {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    if (!src) {
-      setFailed(true);
-      return;
-    }
-    setFailed(false);
-    const probe = new Image();
-    const markBroken = () => setFailed(true);
-    probe.addEventListener("error", markBroken);
-    probe.addEventListener("load", () => {
-      if (probe.naturalWidth === 0) markBroken();
-    });
-    probe.src = src;
-    return () => {
-      probe.removeEventListener("error", markBroken);
-    };
-  }, [src]);
+  const [failed, setFailed] = useState(!src);
 
   if (failed) {
     return (
@@ -48,11 +33,14 @@ export function GameCover({
   }
 
   return (
+    // eslint-disable-next-line @next/next/no-img-element -- Steam CDN; shared with search UI
     <img
       src={src}
       alt={alt}
       width={width}
       height={height}
+      loading={priority ? "eager" : "lazy"}
+      decoding="async"
       className={className}
       onError={() => setFailed(true)}
     />
