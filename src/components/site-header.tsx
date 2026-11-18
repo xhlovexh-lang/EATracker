@@ -1,21 +1,8 @@
 import Link from "next/link";
 import { Activity, ShieldCheck, BarChart3, Clock, AlertTriangle, Sparkles } from "lucide-react";
-import { loadCatalog } from "../lib/repository";
-import { formatUtcDate } from "../lib/status-engine";
 import { GameSearchAutocomplete } from "./game-search";
 
 export async function SiteHeader() {
-  const catalog = await loadCatalog();
-  const searchItems = catalog.games.map((g) => ({
-    appid: g.appid,
-    name: g.name,
-    slug: g.slug,
-    status: g.status,
-    activityScore: g.activityScore,
-    lastUpdateLabel: formatUtcDate(g.lastActivityAt),
-    headerImage: g.headerImage,
-  }));
-
   return (
     <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
@@ -86,7 +73,6 @@ export async function SiteHeader() {
 
         <div className="w-56 sm:w-72">
           <GameSearchAutocomplete
-            items={searchItems}
             placeholder="Quick check game..."
             compact
           />
